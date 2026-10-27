@@ -34,4 +34,14 @@ docker compose up --build dashboard     # 저장소 루트에서
 
 ## 주고받는 데이터
 
-<!-- 받는 입력 / 내보내는 출력 형식을 적는다 -->
+화면은 지금 임시 데이터로 동작한다 (`static/app.js`의 `USE_MOCK = true`). 아래는 화면이 기대하는 형식(초안)이다. 실제 API가 정해지면 대시보드 서버(`app.py`)가 각 서비스를 불러 이 형식으로 맞춰 준다.
+
+| 화면 | 대시보드 API | 응답 | 원본 서비스 |
+|---|---|---|---|
+| ① QR 카메라 연동 | `GET /api/session` | `{ capture_url, connected }` | frame-capture |
+| ② 실시간 저장 현황 | `GET /api/stats` | `{ saved, per_minute, latest: [{ id, title, text, saved_at }] }` (latest는 최신순) | vector-store |
+| ③ RAG 검색 | `POST /api/ask` `{ question }` | `{ answer, sources: [{ id, title }] }` | rag-chat |
+
+- `capture_url`은 휴대폰이 열 카메라 페이지 주소. HTTPS여야 카메라 권한이 열리고, QR 라이브러리 제약으로 ASCII 문자만 쓴다.
+- `saved_at`은 ISO 8601 시각 문자열.
+- 화면 갱신은 2초 간격 폴링이다.
