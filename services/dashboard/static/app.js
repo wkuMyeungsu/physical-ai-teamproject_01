@@ -151,16 +151,40 @@ function renderStats(s) {
   const live = $('live-status');
   live.textContent = s.per_minute > 0 ? 'LIVE' : '대기 중';
   live.classList.toggle('on', s.per_minute > 0);
-  if (!s.latest.length || s.latest[0].id === lastTopId) return;
+  if (!s.latest.length) {  // DB를 비우면 목록도 비운다
+    $('feed').innerHTML = '';
+    lastTopId = null;
+    seen = new Set();
+    return;
+  }
+  if (s.latest[0].id === lastTopId) return;
   lastTopId = s.latest[0].id;
   const first = seen.size === 0;  // 처음 그릴 때는 강조하지 않는다
   $('feed').innerHTML = s.latest.map(r => `
-    <li class="${!first && !seen.has(r.id) ? 'new' : ''}">
+    <li class="${!first && !seen.has(r.id) ? 'new' : ''}${openIds.has(String(r.id)) ? ' open' : ''}" data-id="${esc(r.id)}" tabindex="0" aria-expanded="${openIds.has(String(r.id))}">
       <div class="top"><span class="id">#${String(r.no).padStart(3, '0')}</span><span class="title">${esc(r.title)}</span><span class="time">${hhmmss(r.saved_at)}</span></div>
       <p class="text">${esc(r.text)}</p>
     </li>`).join('');
   seen = new Set(s.latest.map(r => r.id));
 }
+
+// 항목을 누르면 그 항목만 원문 전체를 펼친다 (2초마다 다시 그려도 펼친 상태 유지)
+const openIds = new Set();
+function toggleItem(li) {
+  const open = li.classList.toggle('open');
+  li.setAttribute('aria-expanded', open);
+  if (open) openIds.add(li.dataset.id); else openIds.delete(li.dataset.id);
+}
+$('feed').addEventListener('click', e => {
+  const li = e.target.closest('li');
+  if (li) toggleItem(li);
+});
+$('feed').addEventListener('keydown', e => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.tagName === 'LI') {
+    e.preventDefault();
+    toggleItem(e.target);
+  }
+});
 
 // 3. RAG 검색
 // 컨베이어 앞쪽 카드(001~003) 내용으로 만든 예시 질문
