@@ -187,15 +187,6 @@ $('feed').addEventListener('keydown', e => {
 });
 
 // 3. RAG 검색
-// 컨베이어 앞쪽 카드(001~003) 내용으로 만든 예시 질문
-const EXAMPLES = ['How fast does an adult read on paper?', 'When were the water pipes laid?', 'What did the lighthouse keeper say about the fog?'];
-$('examples').innerHTML = EXAMPLES.map(q => `<button type="button">${esc(q)}</button>`).join('');
-$('examples').addEventListener('click', e => {
-  if (e.target.tagName !== 'BUTTON') return;
-  $('q').value = e.target.textContent;
-  $('ask-form').requestSubmit();
-});
-
 $('ask-form').addEventListener('submit', async e => {
   e.preventDefault();
   const q = $('q').value.trim();

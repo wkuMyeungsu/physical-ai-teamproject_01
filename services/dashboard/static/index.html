@@ -71,8 +71,6 @@ input{flex:1;min-width:0;font:inherit;padding:9px 12px;border:1px solid var(--li
 input:focus-visible,button:focus-visible{outline:2px solid var(--violet);outline-offset:2px}
 button{font:inherit;font-weight:700;padding:0 16px;border:0;border-radius:8px;background:var(--violet);color:var(--on-violet);cursor:pointer}
 button:disabled{opacity:.5;cursor:default}
-.examples{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
-.examples button{font-weight:400;font-size:12px;padding:4px 10px;background:var(--soft);color:var(--ink);border:1px solid var(--line)}
 #result{flex:1;min-height:0;overflow-y:auto}
 .answer{border-left:3px solid var(--violet);background:var(--soft);border-radius:6px;padding:12px 14px;white-space:pre-wrap}
 .sources{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
@@ -116,7 +114,6 @@ button:disabled{opacity:.5;cursor:default}
       <input id="q" aria-label="질문" placeholder="저장된 원문에 대해 질문하세요 (영어)" autocomplete="off">
       <button id="ask-btn">검색</button>
     </form>
-    <div class="examples" id="examples"></div>
     <div id="result" aria-live="polite"><p class="muted">질문을 입력하면 저장된 원문을 근거로 답합니다.</p></div>
   </section>
 </main>
