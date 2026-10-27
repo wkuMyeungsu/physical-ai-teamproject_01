@@ -30,14 +30,22 @@ docker compose up --build ocr-extract
 
 ## 주고받는 데이터
 
-**받는 입력** — `POST /ocr`, multipart 파일 1개 (필드 이름 `file`, jpg/png)
+**받는 입력** (frame-capture → ocr-extract) — `POST /ocr`, multipart
+
+| 필드 | 필수 | 내용 |
+|---|---|---|
+| `file` | ✅ | 프레임 이미지 1장 (jpg/png) |
+| `session` | | 세션 ID. vector-store `metadata.session`에 붙임 |
+| `frame_id` | | 프레임 ID. vector-store `frame_id`에 붙임 |
 
 ```python
-import requests
-r = requests.post("http://ocr-extract:8002/ocr", files={"file": open("frame.jpg", "rb")})
+import httpx
+r = httpx.post("http://ocr-extract:8002/ocr",
+               files={"file": ("frame.jpg", jpeg_bytes, "image/jpeg")},
+               data={"session": "a8f3k2"})
 ```
 
-**내보내는 출력** — 새로 인식된 카드 목록
+**내보내는 출력 ①** (ocr-extract → frame-capture) — 응답: 새로 인식된 카드 목록
 
 ```json
 {
@@ -49,14 +57,35 @@ r = requests.post("http://ocr-extract:8002/ocr", files={"file": open("frame.jpg"
       "confidence": 0.982,
       "timestamp": "2026-10-27T14:03:21"
     }
+  ],
+  "stored": true
+}
+```
+
+- `stored`: vector-store 저장 요청 성공 `true` / 실패 `false` / 보낼 카드가 없음 `null`
+- 걸러내는 것: 흔들린 프레임, 사진 끝에 걸린 카드, 컨베이어 영역 끝에서 잘린 카드(정상 폭보다 8% 이상 좁은 카드)
+- 같은 카드는 한 번만 보냄. 단, 더 정확하게 읽히면 같은 `title`로 다시 보냄 (vector-store가 중복을 한 번 더 거름)
+- 카드가 없으면 `{"count": 0, "cards": [], "stored": null}`
+- 이미지가 아니면 `400`
+
+**내보내는 출력 ②** (ocr-extract → vector-store) — 카드가 인식되면 `POST http://vector-store:8003/documents/batch`
+
+```json
+{
+  "items": [
+    {
+      "text": "HOW BREAD FAILS\nA dense loaf usually means the yeast was tired ...",
+      "source": "ocr-extract",
+      "frame_id": "frame_000123",
+      "metadata": {"title": "HOW BREAD FAILS", "confidence": 0.982, "ocr_at": "2026-10-27T14:03:21", "session": "a8f3k2"}
+    }
   ]
 }
 ```
 
-- 걸러내는 것: 흔들린 프레임, 사진 끝에 걸린 카드, 컨베이어 영역 끝에서 잘린 카드(정상 폭보다 8% 이상 좁은 카드)
-- 같은 카드는 한 번만 보냄. 단, 더 정확하게 읽히면 같은 `title`로 다시 보냄 → vector-store는 `title` 기준 덮어쓰기(upsert)
-- 카드가 없으면 `{"count": 0, "cards": []}`
-- 이미지가 아니면 `400`
+- `frame_id`, `metadata.session`은 입력으로 받았을 때만 붙음
+- vector-store가 꺼져 있어도 OCR 응답은 정상으로 돌려줌 (`stored: false`, 로그에 경고)
+- 주소는 환경 변수 `VECTOR_STORE_URL`로 바꿀 수 있음 (기본값 `http://vector-store:8003`)
 
 **기타**
 - `POST /reset` — 중복 기록 초기화 (새 세션 시작할 때)
