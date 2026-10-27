@@ -4,6 +4,7 @@
 - 할 일: 저장된 원문으로 질문에 답변
 - 브랜치: `base/rag-chat` → `feature/rag-chat-<기능>`
 - 컨테이너 주소: `http://rag-chat:8004` (포트 8004, `0.0.0.0`에서 열기)
+- 기술 스택·구현 정리 (발표용): [docs/tech-summary.md](docs/tech-summary.md)
 
 ## 작업 규칙
 
