@@ -52,6 +52,11 @@ main{display:grid;grid-template-columns:minmax(260px,1fr) minmax(300px,1.2fr) mi
 .sub{display:flex;gap:16px;margin:8px 0 14px;font-size:13px;color:var(--muted)}
 .feed{list-style:none;margin:0;padding:0 4px 0 0;display:flex;flex-direction:column;gap:8px;overflow-y:auto;flex:1;min-height:0}
 .feed li{flex-shrink:0;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--soft)}
+.feed li{cursor:pointer}
+.feed li:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.feed li.open{border-color:var(--blue)}
+.feed li.open .title{white-space:normal}
+.feed li.open .text{display:block;-webkit-line-clamp:unset;overflow:visible;color:var(--ink);font-size:13.5px;line-height:1.6}
 .feed li.new{border-color:var(--blue);animation:slide .4s ease}
 @keyframes slide{from{opacity:0;transform:translateY(-8px)}}
 .feed .top{display:flex;gap:8px;align-items:baseline;font-size:13px}
