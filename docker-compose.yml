@@ -6,24 +6,24 @@ services:
   dashboard:
     build: ./services/dashboard
     ports: ["8000:8000"]
-    env_file: { path: .env, required: false }
+    env_file: [{ path: .env, required: false }]
 
   frame-capture:
     build: ./services/frame-capture
     ports: ["8001:8001"]
-    env_file: { path: .env, required: false }
+    env_file: [{ path: .env, required: false }]
 
   ocr-extract:
     build: ./services/ocr-extract
     ports: ["8002:8002"]
-    env_file: { path: .env, required: false }
+    env_file: [{ path: .env, required: false }]
 
   vector-store:
     build: ./services/vector-store
     ports: ["8003:8003"]
-    env_file: { path: .env, required: false }
+    env_file: [{ path: .env, required: false }]
 
   rag-chat:
     build: ./services/rag-chat
     ports: ["8004:8004"]
-    env_file: { path: .env, required: false }
+    env_file: [{ path: .env, required: false }]
