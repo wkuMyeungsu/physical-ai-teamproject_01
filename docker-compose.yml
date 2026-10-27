@@ -12,6 +12,9 @@ services:
     build: ./services/frame-capture
     ports: ["8001:8001"]
     env_file: [{ path: .env, required: false }]
+    environment:
+      # 휴대폰이 열 HTTPS 주소(터널). 예: PUBLIC_BASE_URL=https://xxxx.trycloudflare.com docker compose up
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
 
   ocr-extract:
     build: ./services/ocr-extract
