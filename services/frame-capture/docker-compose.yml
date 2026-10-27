@@ -2,7 +2,7 @@ services:
   app:
     build: .
     ports:
-      - "8000:8000"
+      - "8001:8001"
     environment:
       REDIS_URL: redis://redis:6379/0
       # Set to your HTTPS tunnel URL (ngrok / Cloudflare Tunnel) so the QR code
