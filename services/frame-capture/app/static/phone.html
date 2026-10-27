@@ -83,13 +83,19 @@ $("startBtn").onclick = async () => {
       audio: false,
     });
     $("video").srcObject = stream;
+    // 브라우저가 자동 재생하지 않으면 영상 크기가 0이라 프레임을 못 보낸다 → 직접 재생
+    await $("video").play().catch(() => {});
     $("startBtn").style.display = "none";
     connect();
+    setTimeout(() => {
+      if (!$("video").videoWidth) setStatus("카메라 영상이 재생되지 않습니다 — 영상 화면을 한 번 눌러 주세요", "err");
+    }, 3000);
   } catch (e) {
     setStatus("카메라 접근 실패: " + e.message, "err");
   }
 };
 $("interval").onchange = () => { if (timer) startSending(); };
+$("video").onclick = () => $("video").play();  // 자동 재생이 막힌 브라우저용: 화면을 눌러 재생
 </script>
 </body>
 </html>
