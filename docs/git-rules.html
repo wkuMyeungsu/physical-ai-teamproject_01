@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Git 브랜치 운용 지침서</title>
+<style>
+:root{--bg:#eceff1;--paper:#fff;--ink:#111;--muted:#555;--rule:#111;--thin:#b8bec4;--code:#f3f4f5;
+  --warn:#c62828;--warn-bg:#fdecea;--caut:#b26a00;--caut-bg:#fff4dc;--note:#1f4e79;--note-bg:#e8f0f8}
+@media (prefers-color-scheme:dark){:root{--bg:#0b0d0f;--paper:#14181c;--ink:#e8eaec;--muted:#9aa3ab;--rule:#e8eaec;--thin:#3a4249;--code:#1d2328;
+  --warn:#ff6b63;--warn-bg:#2a1513;--caut:#ffb454;--caut-bg:#2a2010;--note:#7fb4e8;--note-bg:#121e2a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.7 system-ui,"Malgun Gothic",sans-serif}
+.doc{max-width:860px;margin:24px auto;background:var(--paper);border:2px solid var(--rule);padding:0 0 28px}
+code,pre,.mono{font-family:ui-monospace,Consolas,monospace}
+code{font-size:.9em;background:var(--code);padding:1px 5px;border:1px solid var(--thin)}
+pre{margin:6px 0;padding:9px 14px;background:var(--code);border:1px solid var(--thin);border-left:4px solid var(--rule);overflow-x:auto;font-size:13px;line-height:1.55}
+pre code{background:none;border:0;padding:0;font-size:inherit}
+p{margin:6px 0}
+
+/* 표지 */
+.head{display:grid;grid-template-columns:1fr auto;border-bottom:2px solid var(--rule)}
+.head .t{padding:18px 22px}
+.head .t small{display:block;letter-spacing:.18em;color:var(--muted);font-size:12px}
+.head h1{margin:2px 0 0;font-size:26px}
+.ctl{border-left:2px solid var(--rule);font-size:13px}
+.ctl div{display:grid;grid-template-columns:80px 1fr;border-bottom:1px solid var(--thin)}
+.ctl div:last-child{border-bottom:0}
+.ctl b,.ctl span{padding:4px 10px}
+.ctl b{background:var(--code);font-weight:600}
+.body{padding:0 22px}
+@media (max-width:640px){.head{grid-template-columns:1fr}.ctl{border-left:0;border-top:2px solid var(--rule)}}
+
+/* 탭 */
+.tabs{display:flex;margin:22px 0 0;border-bottom:2px solid var(--rule);overflow-x:auto}
+.tabs button{flex:1;min-width:120px;font:inherit;font-weight:700;text-align:left;padding:7px 12px;margin-right:-2px;border:2px solid var(--rule);border-bottom:0;background:var(--code);color:var(--ink);cursor:pointer}
+.tabs button:last-child{margin-right:0}
+.tabs button span{display:block;font:400 11px ui-monospace,Consolas,monospace;letter-spacing:.12em;color:var(--muted)}
+.tabs button[aria-selected="true"]{background:var(--ink);color:var(--paper)}
+.tabs button[aria-selected="true"] span{color:var(--paper);opacity:.75}
+.tabs button:focus-visible{outline:3px solid var(--note);outline-offset:-5px}
+[role="tabpanel"][hidden]{display:none}
+.lead{color:var(--muted);margin:10px 0 0}
+
+h2{margin:26px 0 10px;padding:6px 10px;background:var(--ink);color:var(--paper);font-size:16px}
+h2 small{font-weight:400;opacity:.75;margin-left:8px;font-size:12px;letter-spacing:.12em}
+
+/* 표 */
+.tw{overflow-x:auto;margin:8px 0}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{border:1px solid var(--rule);padding:5px 9px;text-align:left;vertical-align:top}
+th{background:var(--code);font-weight:600;white-space:nowrap}
+td.c,th.c{text-align:center}
+
+/* 흐름 */
+.flow{display:flex;flex-wrap:wrap;margin:16px 0 0;font-size:13px}
+.flow .n{border:2px solid var(--rule);padding:6px 10px;text-align:center;min-width:140px;flex:1;font-family:ui-monospace,Consolas,monospace;font-weight:700}
+.flow .ar{align-self:center;padding:0 6px;font-weight:700;text-align:center;font-family:ui-monospace,Consolas,monospace;font-size:11px}
+.flow .ar span{display:block;font-size:20px;line-height:1}
+
+/* 경고 */
+.box{margin:10px 0;border:2px solid var(--c);background:var(--bg-c)}
+.box .lb{background:var(--c);color:#fff;padding:2px 10px;font-weight:700;letter-spacing:.1em;font-size:13px}
+.box .lb span{font-weight:400;opacity:.85;margin-left:8px;font-size:11px;letter-spacing:.14em}
+.box ul{margin:0;padding:7px 12px 7px 30px}
+.box p{margin:0;padding:7px 12px}
+.warn{--c:var(--warn);--bg-c:var(--warn-bg)}
+.caut{--c:var(--caut);--bg-c:var(--caut-bg)}
+.note{--c:var(--note);--bg-c:var(--note-bg)}
+@media (prefers-color-scheme:dark){.box .lb{color:#111}}
+
+/* 작업 카드 */
+.task{margin:14px 0;border:1px solid var(--rule);break-inside:avoid}
+.task .th{display:grid;grid-template-columns:auto 1fr auto;align-items:center;background:var(--code);border-bottom:1px solid var(--rule)}
+.task .id{padding:5px 12px;font-family:ui-monospace,Consolas,monospace;font-weight:700;background:var(--ink);color:var(--paper)}
+.task .nm{padding:5px 12px;font-weight:700}
+.task .when{padding:5px 12px;font-size:13px;color:var(--muted)}
+.task .in{padding:6px 14px 10px}
+.task ol{margin:4px 0;padding-left:22px}
+.task ol li{padding:2px 0}
+@media (max-width:640px){.task .th{grid-template-columns:auto 1fr}.task .when{grid-column:1/-1;border-top:1px solid var(--thin)}}
+
+/* 흐름 그래프 */
+.graph{overflow-x:auto;margin:12px 0 0;border:1px solid var(--rule);background:var(--code);padding:6px}
+.graph svg{display:block;width:100%;min-width:760px;height:auto}
+.graph text{font-family:ui-monospace,Consolas,monospace;fill:var(--ink)}
+.graph .halo{stroke:var(--code);stroke-width:4;paint-order:stroke}
+.graph .nd{fill:var(--code)}
+.legend{display:flex;gap:18px;flex-wrap:wrap;color:var(--muted);font-size:13px;margin:8px 0 0}
+.legend svg{vertical-align:-3px}
+
+.end{text-align:center;margin:26px 0 0;letter-spacing:.3em;font-size:12px;color:var(--muted)}
+@media print{body{background:#fff}.doc{margin:0;border:0}.tabs{display:none}[role="tabpanel"][hidden]{display:block}}
+</style>
+</head>
+<body>
+<div class="doc">
+
+<div class="head">
+  <div class="t">
+    <small>BRANCH OPERATION MANUAL</small>
+    <h1>Git 브랜치 운용 지침서</h1>
+  </div>
+  <div class="ctl">
+    <div><b>문서 번호</b><span class="mono">GIT-OPS-001</span></div>
+    <div><b>개정</b><span class="mono">REV 3</span></div>
+    <div><b>시행일</b><span class="mono">2026-10-27</span></div>
+    <div><b>저장소</b><span class="mono">wkuMyeungsu/physical-ai-teamproject_01</span></div>
+  </div>
+</div>
+
+<div class="body">
+
+<div class="flow" aria-label="합치는 방향">
+  <div class="n">feature/&lt;영역&gt;-&lt;기능&gt;</div>
+  <div class="ar">PR<span>→</span></div>
+  <div class="n">base/&lt;영역&gt;</div>
+  <div class="ar">PR<span>→</span></div>
+  <div class="n">dev</div>
+  <div class="ar">PR<span>→</span></div>
+  <div class="n">main</div>
+</div>
+
+<div class="tabs" role="tablist">
+  <button role="tab" id="b-start" aria-controls="start"><span>01 · SETUP</span>시작할 때</button>
+  <button role="tab" id="b-work" aria-controls="work"><span>02 · WORK</span>작업할 때</button>
+  <button role="tab" id="b-merge" aria-controls="merge"><span>03 · INTEGRATE</span>합칠 때</button>
+  <button role="tab" id="b-rules" aria-controls="rules"><span>04 · RULES</span>규칙</button>
+  <button role="tab" id="b-flow" aria-controls="flow"><span>05 · EXAMPLE</span>흐름 예시</button>
+</div>
+
+<!-- ============ 01 시작할 때 ============ -->
+<section role="tabpanel" id="start" aria-labelledby="b-start">
+<p class="lead">처음 한 번만 한다. 저장소 담당자 설정이 끝난 뒤 팀원이 받는다.</p>
+
+<div class="task">
+  <div class="th"><div class="id">SETUP</div><div class="nm">저장소 처음 받기</div><div class="when">팀원 각자 1회</div></div>
+  <div class="in">
+<ol>
+  <li>GitHub 메일 또는 알림에서 저장소 초대(Collaborator)를 수락한다.</li>
+  <li>저장소를 받는다.
+<pre><code>git clone https://github.com/wkuMyeungsu/physical-ai-teamproject_01.git
+cd physical-ai-teamproject_01</code></pre></li>
+  <li>작성자 정보와 pull 방식을 설정한다.
+<pre><code>git config user.name "이름"
+git config user.email "GitHub 계정 이메일"
+git config pull.rebase false</code></pre></li>
+  <li>내 영역 브랜치로 이동해 확인한다.
+<pre><code>git switch base/homepage        # 원격 브랜치를 따라가는 로컬 브랜치가 생긴다
+git branch -a                   # main, dev, base/* 가 보이면 완료</code></pre></li>
+</ol>
+  </div>
+</div>
+
+<div class="task">
+  <div class="th"><div class="id">ADMIN</div><div class="nm">저장소 구성</div><div class="when">저장소 담당자 1회 · SETUP보다 먼저</div></div>
+  <div class="in">
+<ol>
+  <li>브랜치를 만들어 올린다.
+<pre><code>git switch main
+git switch -c dev &amp;&amp; git push -u origin dev
+git switch -c base/homepage &amp;&amp; git push -u origin base/homepage
+git switch dev
+git switch -c base/ai &amp;&amp; git push -u origin base/ai</code></pre></li>
+  <li>GitHub에서 설정한다.
+<div class="tw"><table>
+  <tr><th>GitHub 설정</th><th>값</th></tr>
+  <tr><td>Settings → Collaborators</td><td>팀원 GitHub 계정 초대</td></tr>
+  <tr><td>Settings → Branches → 보호 규칙 대상</td><td><code>main</code>, <code>dev</code></td></tr>
+  <tr><td>Require a pull request before merging</td><td>켬 · 승인 1명</td></tr>
+  <tr><td>Allow force pushes / Allow deletions</td><td>끔</td></tr>
+  <tr><td>Settings → General → Pull Requests</td><td><b>Allow merge commits</b>만 켬</td></tr>
+</table></div></li>
+</ol>
+  </div>
+</div>
+</section>
+
+<!-- ============ 02 작업할 때 ============ -->
+<section role="tabpanel" id="work" aria-labelledby="b-work" hidden>
+<p class="lead">팀원 누구나. 기능 하나마다 TASK 0 → TASK 1을 반복한다.</p>
+
+<div class="task">
+  <div class="th"><div class="id">TASK 0</div><div class="nm">기능 브랜치 만들기</div><div class="when">기능 시작 시</div></div>
+  <div class="in">
+<pre><code>git switch base/homepage &amp;&amp; git pull
+git switch -c feature/homepage-login-button
+# 작업 → git add &lt;파일&gt; → git commit
+git push -u origin feature/homepage-login-button</code></pre>
+  </div>
+</div>
+
+<div class="task">
+  <div class="th"><div class="id">TASK 1</div><div class="nm">기능 → 영역 (PR)</div><div class="when">기능 하나 끝날 때마다</div></div>
+  <div class="in">
+<ol>
+  <li>영역 브랜치의 최신 내용을 받아와 충돌을 미리 푼다.
+<pre><code>git pull origin base/homepage
+git push</code></pre></li>
+  <li>GitHub에서 PR 생성: <b>base</b> <code>base/homepage</code> ← <b>compare</b> <code>feature/homepage-login-button</code></li>
+  <li>리뷰어 1명 승인 → <b>Create a merge commit</b> → <b>Delete branch</b></li>
+  <li>로컬 정리
+<pre><code>git switch base/homepage &amp;&amp; git pull
+git branch -d feature/homepage-login-button</code></pre></li>
+</ol>
+<div class="box caut"><div class="lb">주의<span>CAUTION</span></div><p>충돌 시: 파일에서 <code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code> ~ <code>&gt;&gt;&gt;&gt;&gt;&gt;&gt;</code> 정리 → <code>git add</code> → <code>git commit</code>. 포기하려면 <code>git merge --abort</code>.</p></div>
+  </div>
+</div>
+</section>
+
+<!-- ============ 03 합칠 때 ============ -->
+<section role="tabpanel" id="merge" aria-labelledby="b-merge" hidden>
+<p class="lead">영역 담당자와 저장소 담당자. TASK 2 → 3 → 4 순서로 한다.</p>
+
+<div class="task">
+  <div class="th"><div class="id">TASK 2</div><div class="nm">영역 → dev (PR)</div><div class="when">영역 담당자 · 주 1회 또는 기능 2~3개마다</div></div>
+  <div class="in">
+<ol>
+  <li>dev의 최신 내용을 받아온다. 충돌은 여기서 푼다.
+<pre><code>git switch base/homepage &amp;&amp; git pull
+git pull origin dev
+git push</code></pre></li>
+  <li>GitHub에서 PR 생성: <b>base</b> <code>dev</code> ← <b>compare</b> <code>base/homepage</code></li>
+  <li>리뷰어 1명 승인 → <b>Create a merge commit</b></li>
+</ol>
+<div class="box caut"><div class="lb">주의<span>CAUTION</span></div><p>병합 후 <b>Delete branch</b>를 누르지 않는다. <code>base/*</code>는 계속 쓰는 브랜치다.</p></div>
+  </div>
+</div>
+
+<div class="task">
+  <div class="th"><div class="id">TASK 3</div><div class="nm">dev → main (PR)</div><div class="when">저장소 담당자 · dev 테스트 통과 후</div></div>
+  <div class="in">
+<ol>
+  <li><code>dev</code>를 받아 실행·테스트한다.
+<pre><code>git switch dev &amp;&amp; git pull</code></pre></li>
+  <li>GitHub에서 PR 생성: <b>base</b> <code>main</code> ← <b>compare</b> <code>dev</code></li>
+  <li>승인 → <b>Create a merge commit</b></li>
+</ol>
+<div class="box warn"><div class="lb">경고<span>WARNING</span></div><p>dev에서 문제가 나오면 main에 올리지 않는다. <code>fix/*</code> 브랜치로 고친 뒤 TASK 1부터 다시.</p></div>
+  </div>
+</div>
+
+<div class="task">
+  <div class="th"><div class="id">TASK 4</div><div class="nm">dev 받아오기</div><div class="when">영역 담당자 · TASK 3 직후</div></div>
+  <div class="in">
+<pre><code>git switch base/homepage &amp;&amp; git pull
+git pull origin dev
+git push</code></pre>
+<p>이후 팀원은 다시 <b>작업할 때</b> 탭의 TASK 0부터 시작한다.</p>
+<div class="box note"><div class="lb">참고<span>NOTE</span></div><p>GitHub이 "dev is behind main"이라고 표시해도 된다. 차이는 병합 커밋뿐이라 다음 dev → main PR에 영향이 없다.</p></div>
+  </div>
+</div>
+</section>
+
+<!-- ============ 04 규칙 ============ -->
+<section role="tabpanel" id="rules" aria-labelledby="b-rules" hidden>
+
+<h2>브랜치 <small>CONFIGURATION</small></h2>
+<div class="tw"><table>
+  <tr><th>브랜치</th><th>역할</th><th class="c">직접 push</th></tr>
+  <tr><td><code>main</code></td><td>통합 확인이 끝난 최종본</td><td class="c">금지 (PR만)</td></tr>
+  <tr><td><code>dev</code></td><td>영역 브랜치들의 1차 통합·테스트</td><td class="c">금지 (PR만)</td></tr>
+  <tr><td><code>base/&lt;영역&gt;</code></td><td>영역별 기능 모음 (<code>base/homepage</code>, <code>base/ai</code>)</td><td class="c">dev 받아오기만<br>(영역 담당자)</td></tr>
+  <tr><td><code>feature/&lt;영역&gt;-&lt;기능&gt;</code></td><td>기능 하나 구현 (<code>feature/homepage-login-button</code>)</td><td class="c">허용</td></tr>
+  <tr><td><code>fix/&lt;영역&gt;-&lt;내용&gt;</code></td><td>버그 수정 하나 (<code>fix/ai-empty-result</code>)</td><td class="c">허용</td></tr>
+</table></div>
+
+<h2>기록 기준 <small>RECORD</small></h2>
+<div class="tw"><table>
+  <tr><th>브랜치 이름</th><td>영문 소문자와 하이픈만. 이름만 보고 기능을 알 수 있게.</td></tr>
+  <tr><th>커밋 메시지</th><td><code>&lt;타입&gt;(&lt;영역&gt;): &lt;요약&gt;</code> — 타입: <code>feat</code> <code>fix</code> <code>docs</code> <code>refactor</code> <code>chore</code><br>예: <code>feat(homepage): 로그인 버튼 추가</code></td></tr>
+  <tr><th>커밋 단위</th><td>목적 하나, 동작하는 상태로.</td></tr>
+  <tr><th>PR 제목</th><td>커밋 메시지와 같은 형식. 본문에 무엇을 바꿨는지, 어떻게 확인했는지.</td></tr>
+  <tr><th>PR 병합 방식</th><td><b>Create a merge commit</b> 만 사용. (Squash, Rebase 금지)</td></tr>
+</table></div>
+
+<h2>금지 사항 <small>PROHIBITED</small></h2>
+<div class="box warn"><div class="lb">경고<span>WARNING</span></div>
+<ul>
+  <li><code>main</code>, <code>dev</code>에 직접 push — 모든 변경은 PR로</li>
+  <li><code>base/*</code>에 직접 작업 커밋 — 기능은 <code>feature/*</code>에서</li>
+  <li><code>git push --force</code></li>
+  <li>다른 사람의 브랜치에 push</li>
+  <li>비밀키, 토큰, <code>.env</code> 커밋 — 올라갔다면 즉시 키를 폐기·재발급</li>
+</ul></div>
+</section>
+
+<!-- ============ 05 흐름 예시 ============ -->
+<section role="tabpanel" id="flow" aria-labelledby="b-flow" hidden>
+<p class="lead">기능이 영역에 모이고 dev → main으로 올라간 뒤 같은 순서를 반복하는 모습. 그래프의 번호는 TASK 번호다.</p>
+<div class="graph"><svg id="g" viewBox="0 0 900 540" role="img" aria-label="브랜치 병합 흐름 그래프"></svg></div>
+<div class="legend">
+  <span><svg width="16" height="16"><circle cx="8" cy="8" r="5" fill="currentColor"/></svg> 커밋</span>
+  <span><svg width="16" height="16"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="3"/></svg> PR 병합 커밋</span>
+  <span><svg width="26" height="16"><line x1="1" y1="8" x2="25" y2="8" stroke="currentColor" stroke-width="2.5" stroke-dasharray="5 4"/></svg> dev 받아오기 (TASK 4)</span>
+</div>
+</section>
+
+<p class="end">— 끝 · END OF DOCUMENT —</p>
+
+</div>
+</div>
+
+<script>
+// 흐름 그래프 데이터: 노드 [레인, 열, 라벨, 병합 여부, TASK 번호]
+const X = c => 40 + 48 * c;
+const Y = {main: 60, dev: 130, hp: 210, login: 280, nav: 340, ai: 420, ocr: 490};
+const C = {main: '#ef4444', dev: '#f59e0b', hp: '#3b82f6', login: '#3b82f6', nav: '#3b82f6', ai: '#a855f7', ocr: '#a855f7'};
+const RANK = {main: 0, dev: 1, hp: 2, ai: 2, login: 3, nav: 3, ocr: 3};
+const R = {main: 8, dev: 8, hp: 7, ai: 7, login: 5.5, nav: 5.5, ocr: 5.5};
+
+const N = {
+  M0: ['main', 0, 'init'],
+  D0: ['dev', 1, 'init'],
+  H0: ['hp', 2, 'init'],
+  A0: ['ai', 2, 'init'],
+  F1a: ['login', 3, '시작'], F1b: ['login', 4, 'commit'], F1c: ['login', 5, 'commit'],
+  N1a: ['nav', 4, '시작'], N1b: ['nav', 5, 'commit'],
+  O1a: ['ocr', 3, '시작'], O1b: ['ocr', 4, 'commit'], O1c: ['ocr', 6, 'commit'],
+  H1: ['hp', 6, 'PR', 1, 1], H2: ['hp', 7, 'PR', 1, 1],
+  A1: ['ai', 7, 'PR', 1, 1],
+  D1: ['dev', 8, 'PR', 1, 2], D2: ['dev', 9, 'PR', 1, 2],
+  M1: ['main', 10, 'PR', 1, 3],
+  H3: ['hp', 12, 'sync', 1, 4],
+  F2a: ['login', 13, '시작'], F2b: ['login', 14, 'commit'],
+  H4: ['hp', 15, 'PR', 1, 1],
+  D4: ['dev', 16, 'PR', 1, 2],
+  M2: ['main', 17, 'PR', 1, 3],
+};
+// 엣지 [from, to, 점선 여부]
+const E = [
+  ['M0','M1'], ['M1','M2'],
+  ['D0','D1'], ['D1','D2'], ['D2','D4'],
+  ['H0','H1'], ['H1','H2'], ['H2','H3'], ['H3','H4'],
+  ['A0','A1'],
+  ['F1a','F1b'], ['F1b','F1c'], ['N1a','N1b'], ['O1a','O1b'], ['O1b','O1c'], ['F2a','F2b'],
+  ['M0','D0'], ['D0','H0'], ['D0','A0'],
+  ['H0','F1a'], ['H0','N1a'], ['A0','O1a'], ['H3','F2a'],
+  ['F1c','H1'], ['N1b','H2'], ['H2','D1'], ['O1c','A1'], ['A1','D2'], ['D2','M1'],
+  ['F2b','H4'], ['H4','D4'], ['D4','M2'],
+  ['D2','H3',1],
+];
+// 레인 이름표 [레인, 열, 이름]
+const L = [
+  ['main',0,'main'], ['dev',1,'dev'], ['hp',2,'base/homepage'], ['ai',2,'base/ai'],
+  ['login',3,'feature/homepage-login-button'], ['nav',4,'feature/homepage-nav-bar'],
+  ['ocr',3,'feature/ai-ocr-api'], ['login',13,'feature/homepage-search'],
+];
+
+const pos = id => ({x: X(N[id][1]), y: Y[N[id][0]], lane: N[id][0]});
+let s = '';
+
+s += `<line x1="${X(11.5)}" y1="8" x2="${X(11.5)}" y2="530" stroke="var(--thin)" stroke-dasharray="4 4"/>`;
+s += `<text x="${X(0)}" y="16" font-size="12" style="fill:var(--muted)">1회차</text>`;
+s += `<text x="${X(11.5) + 10}" y="16" font-size="12" style="fill:var(--muted)">2회차 — 같은 순서 반복</text>`;
+
+for (const [a, b, dashed] of E) {
+  const p = pos(a), q = pos(b);
+  const lane = RANK[q.lane] >= RANK[p.lane] ? q.lane : p.lane;
+  const mx = (p.x + q.x) / 2;
+  const d = p.y === q.y ? `M${p.x} ${p.y}L${q.x} ${q.y}` : `M${p.x} ${p.y}C${mx} ${p.y} ${mx} ${q.y} ${q.x} ${q.y}`;
+  s += `<path d="${d}" fill="none" stroke="${C[lane]}" stroke-width="2.5"${dashed ? ' stroke-dasharray="5 4"' : ''}/>`;
+}
+
+for (const [lane, c, name] of L) {
+  s += `<text class="halo" x="${X(c) - 8}" y="${Y[lane] - 16}" font-size="12" font-weight="700" style="fill:${C[lane]}">${name}</text>`;
+}
+
+for (const id in N) {
+  const [lane, c, label, merge, step] = N[id], x = X(c), y = Y[lane];
+  s += merge
+    ? `<circle class="nd" cx="${x}" cy="${y}" r="${R[lane] + 1}" stroke="${C[lane]}" stroke-width="3"/>`
+    : `<circle cx="${x}" cy="${y}" r="${R[lane]}" fill="${C[lane]}"/>`;
+  s += `<text class="halo" x="${x}" y="${y + 22}" font-size="11" text-anchor="middle" style="fill:var(--muted)">${label}</text>`;
+  if (step) {
+    s += `<circle cx="${x}" cy="${y - 24}" r="9" style="fill:var(--ink)"/>`
+       + `<text x="${x}" y="${y - 20}" font-size="12" font-weight="700" text-anchor="middle" style="fill:var(--paper)">${step}</text>`;
+  }
+}
+
+document.getElementById('g').innerHTML = s;
+
+const tabs =[...document.querySelectorAll('[role="tab"]')];
+function show(id) {
+  for (const t of tabs) {
+    const on = t.getAttribute('aria-controls') === id;
+    t.setAttribute('aria-selected', on);
+    document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+  }
+}
+for (const t of tabs) {
+  t.addEventListener('click', () => {
+    const id = t.getAttribute('aria-controls');
+    show(id);
+    history.replaceState(null, '', '#' + id);
+  });
+}
+// 주소의 #work 같은 해시로 탭을 바로 열 수 있다
+const first = location.hash.slice(1);
+show(tabs.some(t => t.getAttribute('aria-controls') === first) ? first : 'start');
+</script>
+</body>
+</html>
