@@ -103,7 +103,7 @@ td.c,th.c{text-align:center}
   </div>
   <div class="ctl">
     <div><b>문서 번호</b><span class="mono">GIT-OPS-001</span></div>
-    <div><b>개정</b><span class="mono">REV 3</span></div>
+    <div><b>개정</b><span class="mono">REV 4</span></div>
     <div><b>시행일</b><span class="mono">2026-10-27</span></div>
     <div><b>저장소</b><span class="mono">wkuMyeungsu/physical-ai-teamproject_01</span></div>
   </div>
@@ -112,9 +112,9 @@ td.c,th.c{text-align:center}
 <div class="body">
 
 <div class="flow" aria-label="합치는 방향">
-  <div class="n">feature/&lt;영역&gt;-&lt;기능&gt;</div>
+  <div class="n">feature/&lt;서비스&gt;-&lt;기능&gt;</div>
   <div class="ar">PR<span>→</span></div>
-  <div class="n">base/&lt;영역&gt;</div>
+  <div class="n">base/&lt;서비스&gt;</div>
   <div class="ar">PR<span>→</span></div>
   <div class="n">dev</div>
   <div class="ar">PR<span>→</span></div>
@@ -145,10 +145,20 @@ cd physical-ai-teamproject_01</code></pre></li>
 <pre><code>git config user.name "이름"
 git config user.email "GitHub 계정 이메일"
 git config pull.rebase false</code></pre></li>
-  <li>내 영역 브랜치로 이동해 확인한다.
-<pre><code>git switch base/homepage        # 원격 브랜치를 따라가는 로컬 브랜치가 생긴다
+  <li>내 서비스 브랜치로 이동해 확인한다.
+<pre><code>git switch base/dashboard        # 원격 브랜치를 따라가는 로컬 브랜치가 생긴다
 git branch -a                   # main, dev, base/* 가 보이면 완료</code></pre></li>
+  <li>내 서비스 컨테이너가 뜨는지 확인한다. 작업은 <code>services/&lt;서비스&gt;/</code> 폴더 안에서만 한다.
+<pre><code>docker compose up --build dashboard   # 내 서비스 이름. 이 폴더에 Dockerfile이 있어야 한다</code></pre></li>
 </ol>
+<div class="tw"><table>
+  <tr><th>서비스</th><th>폴더</th><th>기준 브랜치</th><th>컨테이너 주소</th><th>담당</th></tr>
+  <tr><td><code>dashboard</code></td><td><code>services/dashboard/</code></td><td><code>base/dashboard</code></td><td><code>http://dashboard:8000</code></td><td>명수</td></tr>
+  <tr><td><code>frame-capture</code></td><td><code>services/frame-capture/</code></td><td><code>base/frame-capture</code></td><td><code>http://frame-capture:8001</code></td><td>대희</td></tr>
+  <tr><td><code>ocr-extract</code></td><td><code>services/ocr-extract/</code></td><td><code>base/ocr-extract</code></td><td><code>http://ocr-extract:8002</code></td><td>도은</td></tr>
+  <tr><td><code>vector-store</code></td><td><code>services/vector-store/</code></td><td><code>base/vector-store</code></td><td><code>http://vector-store:8003</code></td><td>진아</td></tr>
+  <tr><td><code>rag-chat</code></td><td><code>services/rag-chat/</code></td><td><code>base/rag-chat</code></td><td><code>http://rag-chat:8004</code></td><td>우진</td></tr>
+</table></div>
   </div>
 </div>
 
@@ -159,9 +169,9 @@ git branch -a                   # main, dev, base/* 가 보이면 완료</code><
   <li>브랜치를 만들어 올린다.
 <pre><code>git switch main
 git switch -c dev &amp;&amp; git push -u origin dev
-git switch -c base/homepage &amp;&amp; git push -u origin base/homepage
-git switch dev
-git switch -c base/ai &amp;&amp; git push -u origin base/ai</code></pre></li>
+for s in dashboard frame-capture ocr-extract vector-store rag-chat; do
+  git branch base/$s dev &amp;&amp; git push -u origin base/$s
+done</code></pre></li>
   <li>GitHub에서 설정한다.
 <div class="tw"><table>
   <tr><th>GitHub 설정</th><th>값</th></tr>
@@ -183,25 +193,27 @@ git switch -c base/ai &amp;&amp; git push -u origin base/ai</code></pre></li>
 <div class="task">
   <div class="th"><div class="id">TASK 0</div><div class="nm">기능 브랜치 만들기</div><div class="when">기능 시작 시</div></div>
   <div class="in">
-<pre><code>git switch base/homepage &amp;&amp; git pull
-git switch -c feature/homepage-login-button
-# 작업 → git add &lt;파일&gt; → git commit
-git push -u origin feature/homepage-login-button</code></pre>
+<pre><code>git switch base/dashboard &amp;&amp; git pull
+git switch -c feature/dashboard-login-button
+# 작업은 services/dashboard/ 안에서만, 실행은 docker compose up --build dashboard
+# git add services/dashboard/&lt;파일&gt; → git commit
+git push -u origin feature/dashboard-login-button</code></pre>
   </div>
 </div>
 
 <div class="task">
-  <div class="th"><div class="id">TASK 1</div><div class="nm">기능 → 영역 (PR)</div><div class="when">기능 하나 끝날 때마다</div></div>
+  <div class="th"><div class="id">TASK 1</div><div class="nm">기능 → 서비스 (PR)</div><div class="when">기능 하나 끝날 때마다</div></div>
   <div class="in">
 <ol>
-  <li>영역 브랜치의 최신 내용을 받아와 충돌을 미리 푼다.
-<pre><code>git pull origin base/homepage
+  <li>서비스 브랜치의 최신 내용을 받아와 충돌을 미리 푼다.
+<pre><code>git pull origin base/dashboard
 git push</code></pre></li>
-  <li>GitHub에서 PR 생성: <b>base</b> <code>base/homepage</code> ← <b>compare</b> <code>feature/homepage-login-button</code></li>
+  <li>GitHub에서 PR 생성: <b>base</b> <code>base/dashboard</code> ← <b>compare</b> <code>feature/dashboard-login-button</code>
+<div class="box warn"><div class="lb">경고<span>WARNING</span></div><p>PR 화면의 <b>base</b> 기본값은 <code>main</code>이다. 반드시 <code>base/&lt;서비스&gt;</code>로 바꾼 뒤 만든다.</p></div></li>
   <li>리뷰어 1명 승인 → <b>Create a merge commit</b> → <b>Delete branch</b></li>
   <li>로컬 정리
-<pre><code>git switch base/homepage &amp;&amp; git pull
-git branch -d feature/homepage-login-button</code></pre></li>
+<pre><code>git switch base/dashboard &amp;&amp; git pull
+git branch -d feature/dashboard-login-button</code></pre></li>
 </ol>
 <div class="box caut"><div class="lb">주의<span>CAUTION</span></div><p>충돌 시: 파일에서 <code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code> ~ <code>&gt;&gt;&gt;&gt;&gt;&gt;&gt;</code> 정리 → <code>git add</code> → <code>git commit</code>. 포기하려면 <code>git merge --abort</code>.</p></div>
   </div>
@@ -210,17 +222,17 @@ git branch -d feature/homepage-login-button</code></pre></li>
 
 <!-- ============ 03 합칠 때 ============ -->
 <section role="tabpanel" id="merge" aria-labelledby="b-merge" hidden>
-<p class="lead">영역 담당자와 저장소 담당자. TASK 2 → 3 → 4 순서로 한다.</p>
+<p class="lead">서비스 담당자와 저장소 담당자. TASK 2 → 3 → 4 순서로 한다.</p>
 
 <div class="task">
-  <div class="th"><div class="id">TASK 2</div><div class="nm">영역 → dev (PR)</div><div class="when">영역 담당자 · 주 1회 또는 기능 2~3개마다</div></div>
+  <div class="th"><div class="id">TASK 2</div><div class="nm">서비스 → dev (PR)</div><div class="when">서비스 담당자 · 주 1회 또는 기능 2~3개마다</div></div>
   <div class="in">
 <ol>
   <li>dev의 최신 내용을 받아온다. 충돌은 여기서 푼다.
-<pre><code>git switch base/homepage &amp;&amp; git pull
+<pre><code>git switch base/dashboard &amp;&amp; git pull
 git pull origin dev
 git push</code></pre></li>
-  <li>GitHub에서 PR 생성: <b>base</b> <code>dev</code> ← <b>compare</b> <code>base/homepage</code></li>
+  <li>GitHub에서 PR 생성: <b>base</b> <code>dev</code> ← <b>compare</b> <code>base/dashboard</code></li>
   <li>리뷰어 1명 승인 → <b>Create a merge commit</b></li>
 </ol>
 <div class="box caut"><div class="lb">주의<span>CAUTION</span></div><p>병합 후 <b>Delete branch</b>를 누르지 않는다. <code>base/*</code>는 계속 쓰는 브랜치다.</p></div>
@@ -241,9 +253,9 @@ git push</code></pre></li>
 </div>
 
 <div class="task">
-  <div class="th"><div class="id">TASK 4</div><div class="nm">dev 받아오기</div><div class="when">영역 담당자 · TASK 3 직후</div></div>
+  <div class="th"><div class="id">TASK 4</div><div class="nm">dev 받아오기</div><div class="when">서비스 담당자 · TASK 3 직후</div></div>
   <div class="in">
-<pre><code>git switch base/homepage &amp;&amp; git pull
+<pre><code>git switch base/dashboard &amp;&amp; git pull
 git pull origin dev
 git push</code></pre>
 <p>이후 팀원은 다시 <b>작업할 때</b> 탭의 TASK 0부터 시작한다.</p>
@@ -255,20 +267,30 @@ git push</code></pre>
 <!-- ============ 04 규칙 ============ -->
 <section role="tabpanel" id="rules" aria-labelledby="b-rules" hidden>
 
+<h2>작업 위치 <small>WORKSPACE</small></h2>
+<div class="tw"><table>
+  <tr><th>단위</th><td>서비스 1개 = 담당자 1명 = <code>services/&lt;서비스&gt;/</code> 폴더 1개 = 컨테이너 1개 = <code>base/&lt;서비스&gt;</code> 브랜치 1개</td></tr>
+  <tr><th>작업 범위</th><td>코드·<code>Dockerfile</code>·의존성 파일 모두 <b>내 서비스 폴더 안에만</b> 둔다. 다른 서비스 폴더는 읽기만 한다.</td></tr>
+  <tr><th>실행</th><td>내 폴더의 <code>Dockerfile</code>로 컨테이너를 만들어 실행한다. 저장소 루트에서 <code>docker compose up --build &lt;서비스&gt;</code>. 호스트 PC에 직접 설치해 돌리지 않는다.</td></tr>
+  <tr><th>서비스 간 호출</th><td>컨테이너 주소로 HTTP 호출 (예: <code>http://ocr-extract:8002</code>). 컨테이너 안의 <code>localhost</code>는 자기 자신이다. 다른 서비스 코드를 import하지 않는다.</td></tr>
+  <tr><th>공용 파일</th><td><code>docker-compose.yml</code>, <code>README.md</code>, <code>AGENTS.md</code>, <code>docs/</code>는 팀장과 상의 후 바꾼다.</td></tr>
+  <tr><th>AI 도구</th><td>저장소 루트의 <code>AGENTS.md</code>(Claude Code는 <code>CLAUDE.md</code>)에 같은 규칙이 있다. AI가 내 서비스 폴더 밖을 고치려 하면 멈춘다.</td></tr>
+</table></div>
+
 <h2>브랜치 <small>CONFIGURATION</small></h2>
 <div class="tw"><table>
   <tr><th>브랜치</th><th>역할</th><th class="c">직접 push</th></tr>
   <tr><td><code>main</code></td><td>통합 확인이 끝난 최종본</td><td class="c">금지 (PR만)</td></tr>
-  <tr><td><code>dev</code></td><td>영역 브랜치들의 1차 통합·테스트</td><td class="c">금지 (PR만)</td></tr>
-  <tr><td><code>base/&lt;영역&gt;</code></td><td>영역별 기능 모음 (<code>base/homepage</code>, <code>base/ai</code>)</td><td class="c">dev 받아오기만<br>(영역 담당자)</td></tr>
-  <tr><td><code>feature/&lt;영역&gt;-&lt;기능&gt;</code></td><td>기능 하나 구현 (<code>feature/homepage-login-button</code>)</td><td class="c">허용</td></tr>
-  <tr><td><code>fix/&lt;영역&gt;-&lt;내용&gt;</code></td><td>버그 수정 하나 (<code>fix/ai-empty-result</code>)</td><td class="c">허용</td></tr>
+  <tr><td><code>dev</code></td><td>서비스 브랜치들의 1차 통합·테스트</td><td class="c">금지 (PR만)</td></tr>
+  <tr><td><code>base/&lt;서비스&gt;</code></td><td>서비스별 기능 모음 (<code>base/dashboard</code>, <code>base/ocr-extract</code>)</td><td class="c">dev 받아오기만<br>(서비스 담당자)</td></tr>
+  <tr><td><code>feature/&lt;서비스&gt;-&lt;기능&gt;</code></td><td>기능 하나 구현 (<code>feature/dashboard-login-button</code>)</td><td class="c">허용</td></tr>
+  <tr><td><code>fix/&lt;서비스&gt;-&lt;내용&gt;</code></td><td>버그 수정 하나 (<code>fix/ocr-extract-empty-result</code>)</td><td class="c">허용</td></tr>
 </table></div>
 
 <h2>기록 기준 <small>RECORD</small></h2>
 <div class="tw"><table>
   <tr><th>브랜치 이름</th><td>영문 소문자와 하이픈만. 이름만 보고 기능을 알 수 있게.</td></tr>
-  <tr><th>커밋 메시지</th><td><code>&lt;타입&gt;(&lt;영역&gt;): &lt;요약&gt;</code> — 타입: <code>feat</code> <code>fix</code> <code>docs</code> <code>refactor</code> <code>chore</code><br>예: <code>feat(homepage): 로그인 버튼 추가</code></td></tr>
+  <tr><th>커밋 메시지</th><td><code>&lt;타입&gt;(&lt;서비스&gt;): &lt;요약&gt;</code> — 타입: <code>feat</code> <code>fix</code> <code>docs</code> <code>refactor</code> <code>chore</code><br>예: <code>feat(dashboard): 로그인 버튼 추가</code></td></tr>
   <tr><th>커밋 단위</th><td>목적 하나, 동작하는 상태로.</td></tr>
   <tr><th>PR 제목</th><td>커밋 메시지와 같은 형식. 본문에 무엇을 바꿨는지, 어떻게 확인했는지.</td></tr>
   <tr><th>PR 병합 방식</th><td><b>Create a merge commit</b> 만 사용. (Squash, Rebase 금지)</td></tr>
@@ -279,6 +301,8 @@ git push</code></pre>
 <ul>
   <li><code>main</code>, <code>dev</code>에 직접 push — 모든 변경은 PR로</li>
   <li><code>base/*</code>에 직접 작업 커밋 — 기능은 <code>feature/*</code>에서</li>
+  <li>내 서비스 폴더(<code>services/&lt;서비스&gt;/</code>) 밖의 파일 수정 — 공용 파일은 팀장과 상의 후</li>
+  <li>호스트 PC에 직접 의존성 설치·실행 — 컨테이너로 실행</li>
   <li><code>git push --force</code></li>
   <li>다른 사람의 브랜치에 push</li>
   <li>비밀키, 토큰, <code>.env</code> 커밋 — 올라갔다면 즉시 키를 폐기·재발급</li>
@@ -287,7 +311,7 @@ git push</code></pre>
 
 <!-- ============ 05 흐름 예시 ============ -->
 <section role="tabpanel" id="flow" aria-labelledby="b-flow" hidden>
-<p class="lead">기능이 영역에 모이고 dev → main으로 올라간 뒤 같은 순서를 반복하는 모습. 그래프의 번호는 TASK 번호다.</p>
+<p class="lead">기능이 서비스에 모이고 dev → main으로 올라간 뒤 같은 순서를 반복하는 모습. 그래프의 번호는 TASK 번호다.</p>
 <div class="graph"><svg id="g" viewBox="0 0 900 540" role="img" aria-label="브랜치 병합 흐름 그래프"></svg></div>
 <div class="legend">
   <span><svg width="16" height="16"><circle cx="8" cy="8" r="5" fill="currentColor"/></svg> 커밋</span>
@@ -342,9 +366,9 @@ const E = [
 ];
 // 레인 이름표 [레인, 열, 이름]
 const L = [
-  ['main',0,'main'], ['dev',1,'dev'], ['hp',2,'base/homepage'], ['ai',2,'base/ai'],
-  ['login',3,'feature/homepage-login-button'], ['nav',4,'feature/homepage-nav-bar'],
-  ['ocr',3,'feature/ai-ocr-api'], ['login',13,'feature/homepage-search'],
+  ['main',0,'main'], ['dev',1,'dev'], ['hp',2,'base/dashboard'], ['ai',2,'base/ocr-extract'],
+  ['login',3,'feature/dashboard-login-button'], ['nav',4,'feature/dashboard-nav-bar'],
+  ['ocr',3,'feature/ocr-extract-api'], ['login',13,'feature/dashboard-search'],
 ];
 
 const pos = id => ({x: X(N[id][1]), y: Y[N[id][0]], lane: N[id][0]});
