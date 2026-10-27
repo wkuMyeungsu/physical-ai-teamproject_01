@@ -12,11 +12,19 @@ services:
     build: ./services/frame-capture
     ports: ["8001:8001"]
     env_file: [{ path: .env, required: false }]
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      # 휴대폰이 열 HTTPS 주소(터널). 예: PUBLIC_BASE_URL=https://xxxx.trycloudflare.com docker compose up
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+    depends_on: [redis]
 
   ocr-extract:
     build: ./services/ocr-extract
     ports: ["8002:8002"]
     env_file: [{ path: .env, required: false }]
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    depends_on: [redis]
 
   vector-store:
     build: ./services/vector-store
@@ -27,3 +35,7 @@ services:
     build: ./services/rag-chat
     ports: ["8004:8004"]
     env_file: [{ path: .env, required: false }]
+
+  # 공용 우편함: frame-capture가 휴대폰 사진을 frames:{세션ID} 리스트에 넣고, ocr-extract가 꺼내 간다.
+  redis:
+    image: redis:7-alpine
