@@ -16,14 +16,19 @@
   --soft:#23272e; --on-violet:#160d2b;
 }}
 *{box-sizing:border-box}
+[hidden]{display:none !important}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 system-ui,"Malgun Gothic",sans-serif}
 header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
 header h1{margin:0;font-size:18px}
 .badge{font-size:12px;padding:2px 8px;border-radius:999px;background:var(--soft);color:var(--muted)}
 .badge.mock{background:color-mix(in srgb,var(--amber) 18%,transparent);color:var(--amber);font-weight:700}
-main{display:grid;grid-template-columns:minmax(260px,1fr) minmax(300px,1.2fr) minmax(320px,1.3fr);gap:16px;padding:16px 20px;max-width:1400px;margin:0 auto}
-@media (max-width:1000px){main{grid-template-columns:1fr}}
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;min-height:520px;border-top:4px solid var(--c)}
+/* 패널 높이를 화면에 고정하고, 늘어나는 목록·답변은 패널 안에서 스크롤 */
+main{display:grid;grid-template-columns:minmax(260px,1fr) minmax(300px,1.2fr) minmax(320px,1.3fr);gap:16px;padding:16px 20px;max-width:1400px;margin:0 auto;height:max(520px,calc(100dvh - 58px))}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;min-height:0;border-top:4px solid var(--c)}
+@media (max-width:1000px){
+  main{grid-template-columns:1fr;height:auto}
+  .feed,#result{max-height:60vh}
+}
 .panel h2{margin:0 0 12px;font-size:15px;display:flex;justify-content:space-between;align-items:center;gap:8px}
 .p-qr{--c:var(--green)} .p-live{--c:var(--blue)} .p-rag{--c:var(--violet)}
 .status{font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:6px;color:var(--muted)}
@@ -34,6 +39,10 @@ main{display:grid;grid-template-columns:minmax(260px,1fr) minmax(300px,1.2fr) mi
 
 /* 1. QR */
 .qr-box{align-self:center;background:#fff;padding:12px;border-radius:8px;margin:8px 0 12px;min-width:224px;min-height:224px;display:grid;place-items:center}
+.qr-box img{width:200px;height:200px;display:block}
+.viewer{aspect-ratio:4/3;background:#111;border-radius:8px;overflow:hidden;margin:8px 0 10px}
+.viewer img{width:100%;height:100%;object-fit:contain;display:block}
+.meta{font-size:12px;color:var(--muted);margin-bottom:8px}
 .url{font-family:ui-monospace,Consolas,monospace;font-size:12px;word-break:break-all;background:var(--soft);padding:8px 10px;border-radius:6px}
 .steps{margin:12px 0 0;padding-left:20px;font-size:13px;color:var(--muted)}
 
@@ -41,8 +50,8 @@ main{display:grid;grid-template-columns:minmax(260px,1fr) minmax(300px,1.2fr) mi
 .count{font-size:44px;font-weight:800;line-height:1;color:var(--blue)}
 .count small{font-size:14px;font-weight:500;color:var(--muted);margin-left:4px}
 .sub{display:flex;gap:16px;margin:8px 0 14px;font-size:13px;color:var(--muted)}
-.feed{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;overflow:auto;flex:1}
-.feed li{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--soft)}
+.feed{list-style:none;margin:0;padding:0 4px 0 0;display:flex;flex-direction:column;gap:8px;overflow-y:auto;flex:1;min-height:0}
+.feed li{flex-shrink:0;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--soft)}
 .feed li.new{border-color:var(--blue);animation:slide .4s ease}
 @keyframes slide{from{opacity:0;transform:translateY(-8px)}}
 .feed .top{display:flex;gap:8px;align-items:baseline;font-size:13px}
@@ -59,6 +68,7 @@ button{font:inherit;font-weight:700;padding:0 16px;border:0;border-radius:8px;ba
 button:disabled{opacity:.5;cursor:default}
 .examples{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
 .examples button{font-weight:400;font-size:12px;padding:4px 10px;background:var(--soft);color:var(--ink);border:1px solid var(--line)}
+#result{flex:1;min-height:0;overflow-y:auto}
 .answer{border-left:3px solid var(--violet);background:var(--soft);border-radius:6px;padding:12px 14px;white-space:pre-wrap}
 .sources{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .sources span{font-size:12px;font-family:ui-monospace,Consolas,monospace;padding:3px 8px;border-radius:6px;border:1px solid var(--line)}
@@ -67,7 +77,7 @@ button:disabled{opacity:.5;cursor:default}
 <body>
 <header>
   <h1>OCR 파이프라인 대시보드</h1>
-  <span class="badge mock" id="mock-badge" hidden>임시 데이터</span>
+  <span class="badge mock" id="mock-badge" hidden></span>
   <span class="badge" id="health">서버 확인 중…</span>
 </header>
 
@@ -75,7 +85,9 @@ button:disabled{opacity:.5;cursor:default}
   <!-- 1. QR 카메라 연동 -->
   <section class="panel p-qr" aria-labelledby="h-qr">
     <h2 id="h-qr">① QR 카메라 연동 <span class="status" id="cam-status">대기 중</span></h2>
-    <div class="qr-box" id="qr" role="img" aria-label="카메라 연결용 QR 코드"></div>
+    <div class="qr-box" id="qr-box"><img id="qr-img" alt="카메라 연결용 QR 코드" hidden><span class="muted" id="qr-msg">세션 만드는 중…</span></div>
+    <div class="viewer" id="viewer" hidden><img id="live" alt="휴대폰 카메라 실시간 화면"></div>
+    <div class="meta">세션 <b id="sid">—</b> · 프레임 <b id="frames">0</b> · <b id="fps">0</b> fps</div>
     <div class="url" id="capture-url">—</div>
     <ol class="steps">
       <li>휴대폰 카메라로 QR을 스캔한다</li>
@@ -104,7 +116,6 @@ button:disabled{opacity:.5;cursor:default}
   </section>
 </main>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

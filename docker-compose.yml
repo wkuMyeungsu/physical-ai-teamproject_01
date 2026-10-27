@@ -13,7 +13,7 @@ services:
     ports: ["8001:8001"]
     env_file: [{ path: .env, required: false }]
     environment:
-      # 휴대폰이 열 HTTPS 주소(터널). 예: PUBLIC_BASE_URL=https://xxxx.trycloudflare.com docker compose up
+      # 휴대폰이 열 HTTPS 주소(proxy 8080에 연결한 터널). 예: .env에 PUBLIC_BASE_URL=https://xxxx.trycloudflare.com
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
 
   ocr-extract:
@@ -30,3 +30,10 @@ services:
     build: ./services/rag-chat
     ports: ["8004:8004"]
     env_file: [{ path: .env, required: false }]
+
+  # 입구: http://localhost:8080 하나로 대시보드 + 휴대폰 페이지. 터널(외부 HTTPS 주소)은 이 포트에 연결한다. 경로 규칙은 Caddyfile.
+  proxy:
+    image: caddy:2.8-alpine
+    ports: ["8080:8080"]
+    volumes: ["./Caddyfile:/etc/caddy/Caddyfile:ro"]
+    depends_on: [dashboard, frame-capture]
