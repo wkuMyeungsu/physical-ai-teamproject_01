@@ -12,9 +12,12 @@ const real = {
   ask: (question) => getJSON('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question }) }),
 };
 
-// 연결 상태·실시간 영상은 브라우저가 frame-capture WebSocket에 직접 붙는다.
-// shortcut: frame-capture가 대시보드와 같은 호스트의 8001 포트에 열려 있다고 가정. 다른 곳에 두면 이 주소를 설정값으로 바꾼다.
-const captureWsUrl = (sid) => `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.hostname}:8001/ws/dashboard/${sid}`;
+// 연결 상태·실시간 영상은 브라우저가 frame-capture WebSocket에 붙는다.
+// localhost:8000으로 직접 열면 frame-capture 포트(8001)로, 프록시·터널 주소로 열면 같은 주소의 /ws/로 붙는다 (프록시가 frame-capture로 넘김).
+const captureWsUrl = (sid) => {
+  const host = location.port === '8000' ? `${location.hostname}:8001` : location.host;
+  return `${location.protocol === 'https:' ? 'wss' : 'ws'}://${host}/ws/dashboard/${sid}`;
+};
 
 async function getJSON(url, opts) {
   const r = await fetch(url, opts);
