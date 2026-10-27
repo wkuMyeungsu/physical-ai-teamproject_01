@@ -1,16 +1,20 @@
 // ===== API 연결부 =====
-// 실제 API가 나오면 USE_MOCK을 false로 바꾸고, real의 주소·응답 형식만 맞춘다.
-// 화면 코드(아래 render*)는 이 세 함수의 반환 형식만 보고 그린다.
-//   session() → { capture_url: string, connected: boolean }
-//   stats()   → { saved: number, per_minute: number, latest: [{ id, title, text, saved_at }] }  (latest는 최신순)
-//   ask(q)    → { answer: string, sources: [{ id, title }] }
-const USE_MOCK = true;
+// ① QR 카메라 연동은 frame-capture에 연결됨. ②③은 API가 나오면 MOCK의 해당 값을 false로 바꾼다.
+// 화면 코드(아래 render*)는 이 함수들의 반환 형식만 보고 그린다.
+//   session() → { session_id, capture_url, qr_png }   (qr_png: PNG base64)
+//   stats()   → { saved, per_minute, latest: [{ id, title, text, saved_at }] }  (latest는 최신순)
+//   ask(q)    → { answer, sources: [{ id, title }] }
+const MOCK = { stats: true, ask: true };
 
 const real = {
-  session: () => getJSON('/api/session'),
+  session: () => getJSON('/api/session', { method: 'POST' }),
   stats: () => getJSON('/api/stats'),
   ask: (question) => getJSON('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question }) }),
 };
+
+// 연결 상태·실시간 영상은 브라우저가 frame-capture WebSocket에 직접 붙는다.
+// shortcut: frame-capture가 대시보드와 같은 호스트의 8001 포트에 열려 있다고 가정. 다른 곳에 두면 이 주소를 설정값으로 바꾼다.
+const captureWsUrl = (sid) => `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.hostname}:8001/ws/dashboard/${sid}`;
 
 async function getJSON(url, opts) {
   const r = await fetch(url, opts);
@@ -18,7 +22,7 @@ async function getJSON(url, opts) {
   return r.json();
 }
 
-// ===== 임시 데이터 (USE_MOCK = true일 때만 사용) =====
+// ===== 임시 데이터 (MOCK 값이 true인 API만 사용) =====
 const PASSAGES = [
   { title: 'The Quiet Machinery of Cities', text: 'Beneath every pavement there is a second city that almost no one sees. Water moves through cast-iron veins laid down in 1897.' },
   { title: 'Notes on Reading Speed', text: 'An average adult reads roughly 240 words per minute on paper and about 180 on a backlit screen.' },
@@ -31,19 +35,13 @@ const PASSAGES = [
 ];
 
 const mock = (() => {
-  const started = Date.now();
   const saved = [];
   let next = 0;
   return {
-    async session() {
-      return { capture_url: 'https://example-tunnel.app/capture?session=demo-001', connected: Date.now() - started > 4000 };
-    },
     async stats() {
-      if (Date.now() - started > 4000) {  // 카메라 연결 후부터 2초마다 1건씩 쌓인다
-        const p = PASSAGES[next % PASSAGES.length];
-        saved.unshift({ id: next + 1, title: p.title, text: p.text, saved_at: new Date().toISOString() });
-        next++;
-      }
+      const p = PASSAGES[next % PASSAGES.length];  // 2초마다 1건씩 쌓인다
+      saved.unshift({ id: next + 1, title: p.title, text: p.text, saved_at: new Date().toISOString() });
+      next++;
       const minuteAgo = Date.now() - 60000;
       return { saved: saved.length, per_minute: saved.filter(s => Date.parse(s.saved_at) > minuteAgo).length, latest: saved.slice(0, 20) };
     },
@@ -53,39 +51,90 @@ const mock = (() => {
       const scored = PASSAGES.map((p, i) => ({ i, p, s: words.filter(w => w.length > 2 && p.text.toLowerCase().includes(w)).length }))
         .filter(x => x.s > 0).sort((a, b) => b.s - a.s);
       if (!scored.length) return { answer: '저장된 원문에서 관련 내용을 찾지 못했습니다.', sources: [] };
-      const top = scored[0];
-      return { answer: `[임시 답변] ${top.p.text}`, sources: scored.slice(0, 2).map(x => ({ id: x.i + 1, title: x.p.title })) };
+      return { answer: `[임시 답변] ${scored[0].p.text}`, sources: scored.slice(0, 2).map(x => ({ id: x.i + 1, title: x.p.title })) };
     },
   };
 })();
 
-const api = USE_MOCK ? mock : real;
+const api = {
+  session: real.session,
+  stats: MOCK.stats ? mock.stats : real.stats,
+  ask: MOCK.ask ? mock.ask : real.ask,
+};
 
 // ===== 화면 =====
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const hhmmss = (iso) => new Date(iso).toLocaleTimeString('ko-KR', { hour12: false });
 
-$('mock-badge').hidden = !USE_MOCK;
+const mocked = [MOCK.stats && '②', MOCK.ask && '③'].filter(Boolean);
+$('mock-badge').hidden = !mocked.length;
+$('mock-badge').textContent = `${mocked.join('')} 임시 데이터`;
 
 fetch('/api/health').then(r => r.json())
   .then(d => $('health').textContent = d.ok ? '서버 정상' : '서버 오류')
   .catch(() => $('health').textContent = '서버 연결 실패');
 
-// 1. QR 카메라 연동
-let qrText = null;
-function renderSession(s) {
-  if (s.capture_url !== qrText) {
-    qrText = s.capture_url;
-    $('capture-url').textContent = qrText;
-    $('qr').innerHTML = '';
-    // qrcodejs는 한글 등 비ASCII 주소에서 실패한다. 캡처 주소는 ASCII로 만든다.
-    try { new QRCode($('qr'), { text: qrText, width: 200, height: 200 }); }
-    catch (err) { $('qr').textContent = `QR 생성 실패: ${err.message || err}`; }
+// 1. QR 카메라 연동 (frame-capture)
+function setCam(text, on) {
+  $('cam-status').textContent = text;
+  $('cam-status').classList.toggle('on', !!on);
+}
+function showLive(live) {  // 영상이 오면 QR 대신 영상을 보여 준다
+  $('viewer').hidden = !live;
+  $('qr-box').hidden = live;
+}
+
+let frames = 0, recent = 0, lastFrameUrl = null;
+setInterval(() => { $('fps').textContent = recent; recent = 0; }, 1000);
+
+async function startSession() {
+  setCam('세션 생성 중');
+  showLive(false);
+  try {
+    const s = await api.session();
+    $('sid').textContent = s.session_id;
+    $('capture-url').textContent = s.capture_url;
+    $('qr-img').src = `data:image/png;base64,${s.qr_png}`;
+    $('qr-img').hidden = false;
+    $('qr-msg').hidden = true;
+    connectCapture(s.session_id);
+  } catch (err) {
+    setCam('frame-capture 연결 실패');
+    $('qr-msg').textContent = `세션을 만들지 못했습니다 (${err.message}). 5초 뒤 다시 시도합니다.`;
+    $('qr-msg').hidden = false;
+    $('qr-img').hidden = true;
+    setTimeout(startSession, 5000);
   }
-  const st = $('cam-status');
-  st.textContent = s.connected ? '연결됨' : '대기 중';
-  st.classList.toggle('on', s.connected);
+}
+
+function connectCapture(sid) {
+  const ws = new WebSocket(captureWsUrl(sid));
+  ws.binaryType = 'blob';
+  const ping = setInterval(() => ws.readyState === WebSocket.OPEN && ws.send('ping'), 20000);
+
+  ws.onmessage = (ev) => {
+    if (typeof ev.data !== 'string') {  // 바이너리 = 휴대폰이 보낸 JPEG 한 장
+      const url = URL.createObjectURL(ev.data);
+      $('live').src = url;
+      if (lastFrameUrl) URL.revokeObjectURL(lastFrameUrl);
+      lastFrameUrl = url;
+      frames++; recent++;
+      $('frames').textContent = frames;
+      showLive(true);
+      return;
+    }
+    const msg = JSON.parse(ev.data);
+    if (msg.type === 'waiting') setCam('대기 중');
+    else if (msg.type === 'paired') setCam('연결됨', true);
+    else if (msg.type === 'phone_disconnected') { setCam('연결 끊김 — QR 다시 스캔'); showLive(false); }
+  };
+  ws.onclose = (ev) => {
+    clearInterval(ping);
+    if (ev.code === 4404) { startSession(); return; }  // frame-capture가 세션을 모름(재시작 등) → 새 세션
+    setCam('frame-capture 재연결 중');
+    setTimeout(() => connectCapture(sid), 2000);
+  };
 }
 
 // 2. 실시간 저장 현황
@@ -135,10 +184,10 @@ $('ask-form').addEventListener('submit', async e => {
   }
 });
 
-// 2초마다 갱신 (실제 API에서 WebSocket·SSE를 주면 여기만 바꾼다)
-async function tick() {
-  try { renderSession(await api.session()); } catch { $('cam-status').textContent = '연결 실패'; }
+// 시작
+startSession();
+async function tickStats() {
   try { renderStats(await api.stats()); } catch { $('live-status').textContent = '연결 실패'; }
 }
-tick();
-setInterval(tick, 2000);
+tickStats();
+setInterval(tickStats, 2000);  // 실제 API에서 WebSocket·SSE를 주면 여기만 바꾼다
