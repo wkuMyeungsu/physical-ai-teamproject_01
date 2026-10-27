@@ -25,7 +25,7 @@ git switch base/<영역>                      # 예: git switch base/ocr
 git switch -c feature/<영역>-<기능>          # 예: git switch -c feature/ocr-crop-filter
 ```
 
-브랜치·커밋·PR 규칙은 [AGENTS.md](AGENTS.md)를 따른다.
+브랜치·커밋·PR 규칙은 [AGENTS.md](AGENTS.md)를 따른다. 단계별 설명은 [docs/git-rules.html](docs/git-rules.html) (내려받아 브라우저로 열기).
 
 ## 전체 실행
 
