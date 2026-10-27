@@ -25,11 +25,13 @@ async def to_search_query(question: str, llm) -> str:
     if llm is None or not has_hangul(question):
         return question
     try:
-        query = await llm.complete(TRANSLATE_SYSTEM, question, max_tokens=100)
+        query = await llm.complete(TRANSLATE_SYSTEM, question, max_tokens=64, temperature=0.0)
     except LLMError as e:
         log.warning("검색어 번역 실패, 원래 질문으로 검색: %s", e)
         return question
     first_line = next((line for line in query.splitlines() if line.strip()), "")
+    first_line = first_line.split("->")[-1]  # 예시 형식 그대로 "질문 -> 검색어"로 답한 경우
+    first_line = re.sub(r"^\s*(english\s+)?(search\s+)?query\s*:\s*", "", first_line, flags=re.I)
     return first_line.strip().strip("\"'") or question
 
 
@@ -100,6 +102,6 @@ async def answer_question(
     if llm is None:
         answer = extractive_answer(sources)
     else:
-        answer = await llm.complete(ANSWER_SYSTEM, build_answer_prompt(question, sources), max_tokens=500)
+        answer = await llm.complete(ANSWER_SYSTEM, build_answer_prompt(question, sources), max_tokens=300, temperature=0.2)
 
     return {"answer": answer, "sources": sources, "found": True, "search_query": search_query}

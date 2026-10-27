@@ -5,15 +5,32 @@
 """
 from __future__ import annotations
 
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from .config import load_settings
-from .llm import AnthropicLLM, LLMError
+from .config import Settings, load_settings
+from .llm import LLMError, LLMUnavailable, LocalLLM, ensure_model_file
 from .pipeline import answer_question
 from .retriever import HttpRetriever, MockRetriever, RetrieverUnavailable
+
+log = logging.getLogger("uvicorn.error")
+
+
+def build_llm(settings: Settings):
+    """설정에 맞는 LLM을 만든다. 로컬 모델을 준비하지 못하면 LLM 없이 뜨고 이유를 돌려준다."""
+    if settings.llm_provider == "local":
+        try:
+            path = ensure_model_file(settings.local_model_path, settings.local_model_repo, settings.local_model_file)
+            llm = LocalLLM(path, n_ctx=settings.local_ctx, n_threads=settings.local_threads)
+            log.info("로컬 LLM 준비 완료: %s", llm.model)
+            return llm, None
+        except LLMUnavailable as e:
+            log.error("로컬 LLM 없이 시작합니다 (관련 원문만 돌려줌): %s", e)
+            return None, str(e)
+    return None, None
 
 
 @asynccontextmanager
@@ -23,11 +40,12 @@ async def lifespan(app: FastAPI):
         retriever = MockRetriever()
     else:
         retriever = HttpRetriever(settings.vector_store_url, settings.vector_store_timeout)
-    llm = AnthropicLLM(settings.llm_model, settings.llm_timeout) if settings.llm_provider == "anthropic" else None
+    llm, llm_error = build_llm(settings)
 
     app.state.settings = settings
     app.state.retriever = retriever
     app.state.llm = llm
+    app.state.llm_error = llm_error
     yield
     await retriever.aclose()
 
@@ -64,6 +82,10 @@ async def health(request: Request):
         "ok": True,
         "retriever": s.retriever.name,
         "vector_store": await s.retriever.health(),
-        "llm": s.settings.llm_provider,
-        "model": s.settings.llm_model if s.llm else None,
+        "llm": {
+            "provider": s.settings.llm_provider,
+            "ready": s.llm is not None,
+            "model": getattr(s.llm, "model", None),
+            "error": s.llm_error,
+        },
     }
