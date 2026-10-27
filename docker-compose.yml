@@ -1,27 +1,29 @@
+# 서비스 1개 = services/<서비스>/ 폴더 1개 = 컨테이너 1개.
 # 각 폴더에 Dockerfile이 생기면 그 서비스부터 동작한다.
-# 컨테이너끼리는 서비스 이름으로 부른다. 예: http://ocr:8002
+# 내 서비스만: docker compose up --build <서비스>   전체: docker compose up --build
+# 컨테이너끼리는 서비스 이름으로 부른다. 예: http://ocr-extract:8002
 services:
-  homepage:
-    build: ./homepage
+  dashboard:
+    build: ./services/dashboard
     ports: ["8000:8000"]
     env_file: { path: .env, required: false }
 
-  capture:
-    build: ./capture
+  frame-capture:
+    build: ./services/frame-capture
     ports: ["8001:8001"]
     env_file: { path: .env, required: false }
 
-  ocr:
-    build: ./ocr
+  ocr-extract:
+    build: ./services/ocr-extract
     ports: ["8002:8002"]
     env_file: { path: .env, required: false }
 
-  db:
-    build: ./db
+  vector-store:
+    build: ./services/vector-store
     ports: ["8003:8003"]
     env_file: { path: .env, required: false }
 
-  rag:
-    build: ./rag
+  rag-chat:
+    build: ./services/rag-chat
     ports: ["8004:8004"]
     env_file: { path: .env, required: false }
