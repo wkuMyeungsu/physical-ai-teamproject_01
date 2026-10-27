@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Conveyor Camera</title>
+<style>
+  body { margin: 0; font-family: system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif; background: #111; color: #eee; text-align: center; }
+  video { width: 100%; max-height: 70vh; background: #000; }
+  #status { padding: 10px; font-size: 15px; }
+  .ok { color: #5fd38d; } .err { color: #ff7b7b; }
+  button { font-size: 18px; padding: 12px 28px; margin: 8px; border-radius: 8px; border: 0; background: #2d7ff9; color: #fff; }
+  label { font-size: 14px; }
+</style>
+</head>
+<body>
+<div id="status">준비 중…</div>
+<video id="video" autoplay playsinline muted></video>
+<canvas id="canvas" hidden></canvas>
+<div>
+  <button id="startBtn">카메라 시작</button>
+</div>
+<label>전송 간격 <select id="interval">
+  <option value="200">200 ms</option>
+  <option value="300" selected>300 ms</option>
+  <option value="500">500 ms</option>
+</select></label>
+<script>
+const $ = (id) => document.getElementById(id);
+const sid = new URLSearchParams(location.search).get("session");
+const MAX_WIDTH = 960, JPEG_QUALITY = 0.7;
+let ws = null, timer = null, sent = 0, busy = false;
+
+function setStatus(text, cls) { $("status").textContent = text; $("status").className = cls || ""; }
+
+if (!sid) setStatus("세션 ID가 없습니다. 대시보드의 QR을 다시 스캔하세요.", "err");
+else if (!window.isSecureContext) setStatus("HTTPS가 아니어서 카메라를 사용할 수 없습니다. (ngrok/Cloudflare Tunnel 필요)", "err");
+else setStatus(`세션 ${sid} · '카메라 시작'을 누르세요`);
+
+function connect() {
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  ws = new WebSocket(`${proto}://${location.host}/ws/phone/${sid}`);
+  ws.binaryType = "arraybuffer";
+  ws.onopen = () => { setStatus(`연결됨 · 세션 ${sid}`, "ok"); startSending(); };
+  ws.onclose = (ev) => {
+    stopSending();
+    if (ev.code === 4404) { setStatus("세션이 존재하지 않습니다. QR을 다시 스캔하세요.", "err"); return; }
+    if (ev.code === 4409) { setStatus("다른 기기가 이 세션에 연결했습니다.", "err"); return; }
+    setStatus("연결 끊김 — 재연결 중…", "err");
+    setTimeout(connect, 2000);
+  };
+}
+
+function startSending() {
+  stopSending();
+  timer = setInterval(sendFrame, Number($("interval").value));
+}
+function stopSending() { if (timer) clearInterval(timer); timer = null; }
+
+function sendFrame() {
+  const v = $("video");
+  if (busy || !ws || ws.readyState !== 1 || !v.videoWidth) return;
+  if (ws.bufferedAmount > 1_000_000) return;  // network can't keep up; drop this frame
+  const scale = Math.min(1, MAX_WIDTH / v.videoWidth);
+  const c = $("canvas");
+  c.width = Math.round(v.videoWidth * scale);
+  c.height = Math.round(v.videoHeight * scale);
+  c.getContext("2d").drawImage(v, 0, 0, c.width, c.height);
+  busy = true;
+  c.toBlob((blob) => {
+    busy = false;
+    if (!blob || ws.readyState !== 1) return;
+    ws.send(blob);
+    sent++;
+    if (sent % 10 === 0) setStatus(`전송 중 · ${sent} frames · 세션 ${sid}`, "ok");
+  }, "image/jpeg", JPEG_QUALITY);
+}
+
+$("startBtn").onclick = async () => {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false,
+    });
+    $("video").srcObject = stream;
+    $("startBtn").style.display = "none";
+    connect();
+  } catch (e) {
+    setStatus("카메라 접근 실패: " + e.message, "err");
+  }
+};
+$("interval").onchange = () => { if (timer) startSending(); };
+</script>
+</body>
+</html>

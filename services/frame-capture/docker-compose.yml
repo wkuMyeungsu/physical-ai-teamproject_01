@@ -1,0 +1,17 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      # Set to your HTTPS tunnel URL (ngrok / Cloudflare Tunnel) so the QR code
+      # points somewhere the phone can reach with camera access, e.g.
+      # PUBLIC_BASE_URL=https://abcd-1234.ngrok-free.app docker compose up
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+    depends_on:
+      - redis
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"

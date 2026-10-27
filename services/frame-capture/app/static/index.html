@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Conveyor OCR Dashboard</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif; background: #f4f5f7; color: #1d1f23; }
+  header { padding: 14px 24px; background: #1d1f23; color: #fff; display: flex; justify-content: space-between; align-items: center; }
+  header h1 { margin: 0; font-size: 18px; }
+  #status { font-size: 14px; padding: 4px 10px; border-radius: 999px; background: #555; }
+  #status.waiting { background: #8a6d1a; }
+  #status.paired { background: #1a7f4b; }
+  #status.lost { background: #a33; }
+  main { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; padding: 16px 24px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .panel { background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .panel h2 { margin: 0 0 12px; font-size: 16px; }
+  #viewer { position: relative; aspect-ratio: 16/9; background: #111; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  #live { width: 100%; height: 100%; object-fit: contain; display: none; }
+  #pairing { text-align: center; color: #ddd; }
+  #pairing img { background: #fff; padding: 8px; border-radius: 8px; width: 220px; height: 220px; }
+  #pairing a { color: #9cf; font-size: 12px; word-break: break-all; }
+  #meta { font-size: 12px; color: #666; margin-top: 8px; }
+  .placeholder { color: #888; font-size: 14px; border: 1px dashed #ccc; border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+  input[type=text] { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>원문 컨베이어 · OCR 대시보드</h1>
+  <span id="status">초기화 중…</span>
+</header>
+<main>
+  <section class="panel">
+    <h2>원문 컨베이어</h2>
+    <div id="viewer">
+      <div id="pairing">
+        <p>휴대폰 카메라로 QR 코드를 스캔하세요</p>
+        <img id="qr" alt="pairing QR code">
+        <p>세션: <b id="sid">-</b></p>
+        <a id="phoneUrl" target="_blank"></a>
+      </div>
+      <img id="live" alt="live conveyor view">
+    </div>
+    <div id="meta">frames: <span id="frames">0</span> · fps: <span id="fps">0</span></div>
+  </section>
+  <section class="panel">
+    <h2>대시보드</h2>
+    <div class="placeholder">OCR 결과가 여기에 표시됩니다 (Stage 4)</div>
+    <input type="text" placeholder="RAG 검색 (Stage 5)" disabled>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+let frames = 0, recent = 0, lastUrl = null;
+
+function setStatus(text, cls) { $("status").textContent = text; $("status").className = cls || ""; }
+
+function showPairing(show) {
+  $("pairing").style.display = show ? "block" : "none";
+  $("live").style.display = show ? "none" : "block";
+}
+
+async function start() {
+  const res = await fetch("/api/session", { method: "POST" });
+  const s = await res.json();
+  $("qr").src = "data:image/png;base64," + s.qr_png;
+  $("sid").textContent = s.session_id;
+  $("phoneUrl").href = $("phoneUrl").textContent = s.phone_url;
+  if (s.phone_url.startsWith("http://") && !/localhost|127\.0\.0\.1/.test(s.phone_url)) {
+    $("phoneUrl").textContent += "  ⚠ HTTPS가 아니면 휴대폰 카메라가 차단됩니다 (PUBLIC_BASE_URL 설정)";
+  }
+  showPairing(true);
+  connect(s.session_id);
+}
+
+function connect(sid) {
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  const ws = new WebSocket(`${proto}://${location.host}/ws/dashboard/${sid}`);
+  ws.binaryType = "blob";
+  const ping = setInterval(() => ws.readyState === 1 && ws.send("ping"), 20000);
+
+  ws.onmessage = (ev) => {
+    if (typeof ev.data !== "string") {
+      // binary = JPEG frame from the phone
+      const url = URL.createObjectURL(ev.data);
+      $("live").src = url;
+      if (lastUrl) URL.revokeObjectURL(lastUrl);
+      lastUrl = url;
+      frames++; recent++;
+      $("frames").textContent = frames;
+      showPairing(false);
+      return;
+    }
+    const msg = JSON.parse(ev.data);
+    if (msg.type === "waiting") setStatus("휴대폰 대기 중", "waiting");
+    else if (msg.type === "paired") { setStatus("휴대폰 연결됨", "paired"); showPairing(false); }
+    else if (msg.type === "phone_disconnected") { setStatus("휴대폰 연결 끊김 — QR 재스캔", "lost"); showPairing(true); }
+  };
+  ws.onclose = (ev) => {
+    clearInterval(ping);
+    if (ev.code === 4404) { setStatus("세션 만료 — 새 세션 생성", "lost"); start(); return; }
+    setStatus("서버 연결 끊김 — 재연결 중", "lost");
+    setTimeout(() => connect(sid), 2000);
+  };
+}
+
+setInterval(() => { $("fps").textContent = recent; recent = 0; }, 1000);
+start().catch((e) => setStatus("오류: " + e.message, "lost"));
+</script>
+</body>
+</html>
