@@ -1,0 +1,8 @@
+# 입구 하나(:8080)로 대시보드와 휴대폰 카메라 페이지를 함께 연다. 터널은 이 포트에 연결한다.
+#   /phone, /ws/*  → frame-capture (휴대폰 카메라 페이지, 영상 WebSocket)
+#   나머지         → dashboard
+:8080 {
+	@capture path /phone /phone/* /ws/*
+	reverse_proxy @capture frame-capture:8001
+	reverse_proxy dashboard:8000
+}

@@ -51,3 +51,9 @@ git switch -c feature/<서비스>-<기능>         # 예: git switch -c feature/
 docker compose up --build <서비스>     # 내 서비스만. 예: docker compose up --build ocr-extract
 docker compose up --build              # 전체 통합
 ```
+
+- 입구: http://localhost:8080 (proxy) 하나로 대시보드와 휴대폰 카메라 페이지가 함께 열린다. 각 서비스 포트(8000~8004)로 직접 열어도 된다.
+- 휴대폰 카메라는 HTTPS에서만 열리므로 터널이 필요하다.
+  1. `cloudflared tunnel --url http://localhost:8080` → `https://xxxx.trycloudflare.com` 주소가 나온다
+  2. 저장소 루트 `.env`에 `PUBLIC_BASE_URL=https://xxxx.trycloudflare.com` (`.env`는 커밋되지 않는다)
+  3. `docker compose up --build` 후 그 주소로 대시보드를 열고 휴대폰으로 QR 스캔
