@@ -1,10 +1,11 @@
 // ===== API 연결부 =====
-// ① QR 카메라 연동은 frame-capture, ② 저장 현황은 vector-store에 연결됨. ③은 API가 나오면 MOCK.ask를 false로 바꾼다.
+// ① QR 카메라 연동은 frame-capture, ② 저장 현황은 vector-store, ③ RAG 검색은 rag-chat에 연결됨.
+// 서비스가 없을 때 화면만 보려면 MOCK 값을 true로 바꾼다.
 // 화면 코드(아래 render*)는 이 함수들의 반환 형식만 보고 그린다.
 //   session() → { session_id, capture_url, qr_png }   (qr_png: PNG base64)
 //   stats()   → { saved, per_minute, latest: [{ id, no, title, text, saved_at }] }  (latest는 최신순, no는 저장 순번)
-//   ask(q)    → { answer, sources: [{ id, title }] }
-const MOCK = { stats: false, ask: true };
+//   ask(q)    → { answer, sources: [{ n, id, title }] }  (n은 답변 안의 [1], [2] 번호)
+const MOCK = { stats: false, ask: false };
 
 const real = {
   session: () => getJSON('/api/session', { method: 'POST' }),
@@ -54,7 +55,7 @@ const mock = (() => {
       const scored = PASSAGES.map((p, i) => ({ i, p, s: words.filter(w => w.length > 2 && p.text.toLowerCase().includes(w)).length }))
         .filter(x => x.s > 0).sort((a, b) => b.s - a.s);
       if (!scored.length) return { answer: '저장된 원문에서 관련 내용을 찾지 못했습니다.', sources: [] };
-      return { answer: `[임시 답변] ${scored[0].p.text}`, sources: scored.slice(0, 2).map(x => ({ id: x.i + 1, title: x.p.title })) };
+      return { answer: `[임시 답변] ${scored[0].p.text}`, sources: scored.slice(0, 2).map((x, k) => ({ n: k + 1, id: x.i + 1, title: x.p.title })) };
     },
   };
 })();
@@ -162,7 +163,8 @@ function renderStats(s) {
 }
 
 // 3. RAG 검색
-const EXAMPLES = ['What water temperature kills yeast?', 'How fast does an adult read?', 'When was paper first made?'];
+// 컨베이어 앞쪽 카드(001~003) 내용으로 만든 예시 질문
+const EXAMPLES = ['How fast does an adult read on paper?', 'When were the water pipes laid?', 'What did the lighthouse keeper say about the fog?'];
 $('examples').innerHTML = EXAMPLES.map(q => `<button type="button">${esc(q)}</button>`).join('');
 $('examples').addEventListener('click', e => {
   if (e.target.tagName !== 'BUTTON') return;
@@ -179,7 +181,7 @@ $('ask-form').addEventListener('submit', async e => {
   try {
     const r = await api.ask(q);
     $('result').innerHTML = `<div class="answer">${esc(r.answer)}</div>` +
-      (r.sources.length ? `<div class="sources">${r.sources.map(s => `<span>출처 #${String(s.id).padStart(3, '0')} ${esc(s.title)}</span>`).join('')}</div>` : '');
+      (r.sources.length ? `<div class="sources">${r.sources.map(s => `<span>출처 [${s.n}] ${esc(s.title)}</span>`).join('')}</div>` : '');
   } catch (err) {
     $('result').innerHTML = `<p class="muted">검색 실패: ${esc(err.message)}</p>`;
   } finally {

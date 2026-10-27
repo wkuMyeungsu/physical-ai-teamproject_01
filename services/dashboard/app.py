@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 import httpx
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 
 log = logging.getLogger("uvicorn.error")
 
@@ -15,6 +16,7 @@ FRAME_CAPTURE_URL = os.getenv("FRAME_CAPTURE_URL", "http://frame-capture:8001")
 # 컨테이너 주소(frame-capture:8001) 대신 브라우저·휴대폰이 닿는 주소가 들어가게 Host를 바꿔 보낸다.
 FRAME_CAPTURE_PUBLIC_HOST = os.getenv("FRAME_CAPTURE_PUBLIC_HOST", "localhost:8001")
 VECTOR_STORE_URL = os.getenv("VECTOR_STORE_URL", "http://vector-store:8003")
+RAG_CHAT_URL = os.getenv("RAG_CHAT_URL", "http://rag-chat:8004")
 
 app = FastAPI(title="dashboard")
 
@@ -66,6 +68,23 @@ async def stats():
             for i, r in enumerate(page["items"])
         ],
     }
+
+
+class AskRequest(BaseModel):
+    question: str = Field(..., min_length=1, max_length=1000)
+
+
+@app.post("/api/ask")
+async def ask(req: AskRequest):
+    """③ RAG 검색: rag-chat /ask 중계. 출처는 화면에 필요한 번호·제목만 넘긴다."""
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:  # LLM 답변 생성이 길어질 수 있다
+            r = await client.post(f"{RAG_CHAT_URL}/ask", json={"question": req.question})
+            r.raise_for_status()
+    except httpx.HTTPError as e:
+        raise HTTPException(502, f"rag-chat 연결 실패: {e}")
+    a = r.json()
+    return {"answer": a["answer"], "sources": [{"n": s["n"], "id": s["id"], "title": s["title"]} for s in a.get("sources", [])]}
 
 
 # API 라우트를 먼저 등록하고, 나머지 경로는 static/ 화면으로
