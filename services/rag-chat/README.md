@@ -18,7 +18,7 @@
 |---|---|
 | 서버 | FastAPI + uvicorn (포트 8004) |
 | 검색 | vector-store `POST /search` 호출. 임베딩은 vector-store가 한다 (같은 모델 보장) |
-| LLM | Anthropic API (`claude-haiku-5-5` 기본). 키가 없으면 LLM 없이 관련 원문만 돌려준다 |
+| LLM | 컨테이너 안의 작은 모델 `Qwen2.5-1.5B-Instruct` (4비트 GGUF, 약 1GB)를 llama.cpp로 CPU에서 돌린다. 키·비용 없음. 사전학습 모델을 가져다 쓰기만 함 |
 | 호출하는 쪽 | dashboard 서버 (`/api/ask` → `http://rag-chat:8004/ask`). 브라우저가 직접 부르지 않으므로 CORS는 열지 않는다 |
 
 처리 흐름:
@@ -31,6 +31,8 @@
 
 ①이 필요한 이유: vector-store의 임베딩 모델(`all-MiniLM-L6-v2`)이 영어 전용이라 한국어 질문으로는 영어 원문이 거의 검색되지 않는다.
 
+모델을 준비하지 못하면(내려받기 실패 등) 서비스는 멈추지 않고 LLM 없이 뜬다. 이때는 번역·답변 생성 없이 가장 관련 있는 원문을 그대로 돌려주고, `/health`의 `llm.error`에 이유가 나온다.
+
 ```
 services/rag-chat/
 ├── Dockerfile
@@ -41,7 +43,7 @@ services/rag-chat/
 │   ├── main.py             API (/ask, /health)
 │   ├── pipeline.py         검색어 변환 → 검색 → 중복 정리 → 답변
 │   ├── retriever.py        vector-store 호출 + mock 검색
-│   ├── llm.py              LLM 호출
+│   ├── llm.py              LLM 호출 (로컬 모델 · Anthropic 선택)
 │   ├── prompt.py           프롬프트 · 제목 만들기
 │   ├── config.py           환경 변수
 │   └── sample_data.json    mock 검색 · 시드용 샘플 영어 원문
@@ -56,7 +58,10 @@ services/rag-chat/
 docker compose up --build rag-chat
 ```
 
-- 확인: http://localhost:8004/health (내 PC 브라우저 기준) → `retriever`, `vector_store.reachable`, `llm` 값을 본다.
+- 첫 빌드는 llama.cpp 컴파일과 모델(약 1GB) 내려받기 때문에 몇 분 걸린다. 모델은 빌드할 때 이미지에 넣어 둔다.
+- 실행 중 메모리를 약 2GB 쓴다. Docker Desktop의 메모리 한도(Settings → Resources)가 작으면 늘린다.
+- 답변은 CPU로 만들어서 질문 하나에 수 초~수십 초 걸린다 (PC 사양에 따라 다름). 한국어 질문은 번역 + 답변으로 모델을 두 번 부른다.
+- 확인: http://localhost:8004/health (내 PC 브라우저 기준) → `retriever`, `vector_store.reachable`, `llm.ready` 값을 본다.
 - API 눌러 보기: http://localhost:8004/docs
 - 코드를 고치면 `Ctrl+C` 후 같은 명령으로 다시 빌드한다.
 
@@ -68,7 +73,7 @@ docker compose up --build rag-chat
 RAG_RETRIEVER=mock
 ```
 
-mock은 영어 단어 겹침으로 찾으므로, LLM 키가 없을 때는 영어로 질문한다 (예: `What water temperature kills yeast?`). 키가 있으면 한국어 질문도 영어 검색어로 바뀌어 찾아진다.
+mock은 영어 단어 겹침으로 찾는다. 로컬 모델이 준비돼 있으면 한국어 질문도 영어 검색어로 바뀌어 찾아진다. 모델 없이(`RAG_LLM_PROVIDER=none`) 빠르게 확인할 때는 영어로 질문한다 (예: `What water temperature kills yeast?`).
 
 ### vector-store와 연동
 
@@ -84,7 +89,7 @@ vector-store는 볼륨이 없어서 다시 빌드하면 데이터가 비므로, 
 
 ### 테스트
 
-LLM 키와 vector-store 없이 mock과 가짜 객체로 돈다.
+실제 모델과 vector-store 없이 mock과 가짜 객체로 돈다.
 
 ```bash
 docker compose run --rm rag-chat pytest -q
@@ -96,9 +101,12 @@ docker compose run --rm rag-chat pytest -q
 
 | 이름 | 기본값 | 설명 |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | (없음) | 있으면 LLM 사용. 없으면 관련 원문만 돌려준다 |
-| `RAG_LLM_PROVIDER` | 키 있으면 `anthropic`, 없으면 `none` | `none`으로 두면 키가 있어도 LLM을 부르지 않는다 |
-| `RAG_LLM_MODEL` | `claude-haiku-5-5` | 답변 품질이 부족하면 `claude-sonnet-5-5` |
+| `RAG_LLM_PROVIDER` | `local` | `local`(작은 모델) · `anthropic`(Claude API) · `none`(LLM 없이 관련 원문만) |
+| `RAG_LOCAL_MODEL_FILE` | `qwen2.5-1.5b-instruct-q4_k_m.gguf` | 쓸 GGUF 파일. 없으면 시작할 때 아래 저장소에서 받는다 |
+| `RAG_LOCAL_MODEL_REPO` | `Qwen/Qwen2.5-1.5B-Instruct-GGUF` | 모델을 받을 Hugging Face 저장소. 비우면 받지 않는다 |
+| `RAG_LOCAL_THREADS` | (자동) | 모델이 쓸 CPU 스레드 수 |
+| `RAG_LOCAL_CTX` | `4096` | 한 번에 다룰 토큰 수 (질문 + 원문 + 답변) |
+| `RAG_ANTHROPIC_MODEL` | `claude-haiku-5-5` | `anthropic`일 때만. `ANTHROPIC_API_KEY`도 필요 |
 | `RAG_RETRIEVER` | `http` | `mock`이면 vector-store 없이 샘플 원문으로 검색 |
 | `RAG_VECTOR_STORE_URL` | `http://vector-store:8003` | |
 | `RAG_SEARCH_TOP_K` | `10` | vector-store에서 받아 올 개수 (중복 정리 전) |
@@ -142,7 +150,7 @@ docker compose run --rm rag-chat pytest -q
 |---|---|
 | 400 | `question`이 비어 있음 |
 | 422 | 요청 형식 오류 (`question` 없음, `top_k` 범위 밖 등) |
-| 502 | LLM 호출 실패 (키 오류, 시간 초과 등) |
+| 502 | LLM 호출 실패 (모델 실행 오류, API 키 오류 등) |
 | 503 | vector-store에 연결할 수 없음 |
 
 ### 상태 — `GET /health`
@@ -150,15 +158,18 @@ docker compose run --rm rag-chat pytest -q
 ```json
 {"service": "rag-chat", "ok": true, "retriever": "http",
  "vector_store": {"reachable": true, "url": "http://vector-store:8003", "status": "ok", "model": "...", "dim": 384},
- "llm": "anthropic", "model": "claude-haiku-5-5"}
+ "llm": {"provider": "local", "ready": true, "model": "qwen2.5-1.5b-instruct-q4_k_m.gguf", "error": null}}
 ```
 
 ### rag-chat이 부르는 API
 
 - vector-store `POST /search` `{query, top_k, min_score, source}` — 형식은 `services/vector-store/README.md` 참고.
 
+## 다른 서비스와 연결 상태
+
+- **dashboard**: `/api/ask`가 `http://rag-chat:8004/ask`를 부르고 `n`·`id`·`title`을 화면에 쓴다. 응답을 **60초**까지 기다리므로 답변 길이를 300토큰으로 제한했다. 느린 PC에서 시간 초과(502)가 나면 dashboard 쪽 시간 제한을 늘리거나 `RAG_LLM_PROVIDER=none`으로 확인한다.
+- **ocr-extract → vector-store**: 카드 제목을 `metadata.title`에 넣어 저장한다. rag-chat은 이 값을 출처 제목과 중복 정리(같은 카드를 다시 읽은 경우)에 쓴다.
+
 ## 협의 필요
 
-- **명수 (dashboard·팀장)**: dashboard 서버의 `/api/ask`를 `http://rag-chat:8004/ask`로 연결. 출처 번호는 `id` 대신 `n` 사용 제안. LLM API 키를 누가 발급할지, 루트 `.env.example`에 `ANTHROPIC_API_KEY` 추가.
-- **OCR 결과를 vector-store에 넣는 쪽 (도은·진아)**: ocr-extract의 카드 `title`을 `POST /documents`의 `metadata.title`에 넣어 주면 출처 제목과 중복 정리에 그대로 쓰인다.
-- **진아 (vector-store)**: 세션별 검색이 필요하면 `metadata.session` 필터 추가 또는 `source`에 세션 ID를 넣는 방식 합의.
+- **진아 (vector-store)**: 세션별 검색이 필요하면 `metadata.session` 필터 추가 (ocr-extract가 이미 `metadata.session`을 넣고 있다).
