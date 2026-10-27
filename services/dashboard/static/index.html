@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OCR 파이프라인 대시보드</title>
+</head>
+<body>
+<h1>OCR 파이프라인 대시보드</h1>
+<p>서버 상태: <span id="health">확인 중…</span></p>
+<script>
+fetch('/api/health')
+  .then(r => r.json())
+  .then(d => document.getElementById('health').textContent = d.ok ? '정상' : '오류')
+  .catch(() => document.getElementById('health').textContent = '연결 실패');
+</script>
+</body>
+</html>
