@@ -1,0 +1,12 @@
+[
+  {"title": "How Language Models Learn", "text": "Large language models are trained on vast amounts of text to predict the next word. They pick up grammar, facts and patterns of reasoning from this data, but they do not browse the internet while answering a question."},
+  {"title": "Limits of Language Models", "text": "Language models can state false information with confidence, a problem often called hallucination. Their knowledge stops at a training cutoff date, and they can struggle with precise arithmetic."},
+  {"title": "What OCR Does", "text": "Optical character recognition converts images of printed or handwritten text into machine-readable characters. Accuracy drops when the image is blurry, tilted or cut off at the edges."},
+  {"title": "Retrieval-Augmented Generation", "text": "Retrieval-augmented generation, or RAG, first searches a collection of documents for passages related to a question. The model then writes an answer grounded in those passages, which reduces made-up facts."},
+  {"title": "Text Embeddings", "text": "An embedding turns a piece of text into a list of numbers that captures its meaning. Texts with similar meanings end up close together, so a search engine can compare them with cosine similarity."},
+  {"title": "Why Bread Rises", "text": "Yeast feeds on the sugar in dough and releases carbon dioxide gas. The gas is trapped by the gluten network, which makes the bread rise. Water hotter than about 60 degrees Celsius kills yeast."},
+  {"title": "Sleep and Memory", "text": "During deep sleep the brain replays experiences from the day and strengthens important memories. People who regularly sleep too little often perform worse on memory tests."},
+  {"title": "Honeybee Communication", "text": "Honeybees perform a waggle dance to tell other bees where to find food. The angle of the dance shows the direction relative to the sun, and its length signals the distance."},
+  {"title": "The First Computer Bug", "text": "In 1947 engineers working on the Harvard Mark II computer found a moth stuck in a relay. They taped it into their logbook, and the story helped popularize the word bug for computer errors."},
+  {"title": "Recycling Aluminum", "text": "Recycling aluminum uses about 95 percent less energy than producing it from raw ore. A recycled can may be back on store shelves in roughly two months."}
+]
