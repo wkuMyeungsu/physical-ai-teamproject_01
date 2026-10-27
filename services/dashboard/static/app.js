@@ -1,10 +1,10 @@
 // ===== API 연결부 =====
-// ① QR 카메라 연동은 frame-capture에 연결됨. ②③은 API가 나오면 MOCK의 해당 값을 false로 바꾼다.
+// ① QR 카메라 연동은 frame-capture, ② 저장 현황은 vector-store에 연결됨. ③은 API가 나오면 MOCK.ask를 false로 바꾼다.
 // 화면 코드(아래 render*)는 이 함수들의 반환 형식만 보고 그린다.
 //   session() → { session_id, capture_url, qr_png }   (qr_png: PNG base64)
-//   stats()   → { saved, per_minute, latest: [{ id, title, text, saved_at }] }  (latest는 최신순)
+//   stats()   → { saved, per_minute, latest: [{ id, no, title, text, saved_at }] }  (latest는 최신순, no는 저장 순번)
 //   ask(q)    → { answer, sources: [{ id, title }] }
-const MOCK = { stats: true, ask: true };
+const MOCK = { stats: false, ask: true };
 
 const real = {
   session: () => getJSON('/api/session', { method: 'POST' }),
@@ -40,7 +40,7 @@ const mock = (() => {
   return {
     async stats() {
       const p = PASSAGES[next % PASSAGES.length];  // 2초마다 1건씩 쌓인다
-      saved.unshift({ id: next + 1, title: p.title, text: p.text, saved_at: new Date().toISOString() });
+      saved.unshift({ id: next + 1, no: next + 1, title: p.title, text: p.text, saved_at: new Date().toISOString() });
       next++;
       const minuteAgo = Date.now() - 60000;
       return { saved: saved.length, per_minute: saved.filter(s => Date.parse(s.saved_at) > minuteAgo).length, latest: saved.slice(0, 20) };
@@ -152,7 +152,7 @@ function renderStats(s) {
   const first = seen.size === 0;  // 처음 그릴 때는 강조하지 않는다
   $('feed').innerHTML = s.latest.map(r => `
     <li class="${!first && !seen.has(r.id) ? 'new' : ''}">
-      <div class="top"><span class="id">#${String(r.id).padStart(3, '0')}</span><span class="title">${esc(r.title)}</span><span class="time">${hhmmss(r.saved_at)}</span></div>
+      <div class="top"><span class="id">#${String(r.no).padStart(3, '0')}</span><span class="title">${esc(r.title)}</span><span class="time">${hhmmss(r.saved_at)}</span></div>
       <p class="text">${esc(r.text)}</p>
     </li>`).join('');
   seen = new Set(s.latest.map(r => r.id));

@@ -20,7 +20,7 @@ FastAPI 서버 1개가 화면(`static/`)과 API(`/api/*`)를 함께 낸다. 브�
 services/dashboard/
   Dockerfile         python:3.12-slim + uvicorn, 포트 8000
   requirements.txt   fastapi, uvicorn, httpx
-  app.py             /api/health, /api/session(frame-capture 중계), 나머지 경로는 static/
+  app.py             /api/health, /api/session(frame-capture 중계), /api/stats(vector-store 중계), 나머지 경로는 static/
   static/index.html  화면
   static/app.js      API 연결부(맨 위) + 화면 갱신
 ```
@@ -37,16 +37,17 @@ docker compose up --build dashboard frame-capture     # 저장소 루트에서. 
 |---|---|---|
 | `FRAME_CAPTURE_URL` | `http://frame-capture:8001` | 대시보드 서버가 부르는 frame-capture 주소 (컨테이너 주소) |
 | `FRAME_CAPTURE_PUBLIC_HOST` | `localhost:8001` | frame-capture에 `PUBLIC_BASE_URL`이 없을 때 QR 주소에 들어갈 호스트 |
+| `VECTOR_STORE_URL` | `http://vector-store:8003` | 대시보드 서버가 부르는 vector-store 주소 (컨테이너 주소) |
 
 ## 주고받는 데이터
 
-① QR 카메라 연동은 frame-capture에 연결됐고, ②③은 임시 데이터로 동작한다 (`static/app.js`의 `MOCK = { stats: true, ask: true }`). 아래는 화면이 기대하는 형식이다. 각 서비스 API가 정해지면 대시보드 서버(`app.py`)가 그 서비스를 불러 이 형식으로 맞춰 준다.
+① QR 카메라 연동은 frame-capture, ② 실시간 저장 현황은 vector-store에 연결됐고, ③은 임시 데이터로 동작한다 (`static/app.js`의 `MOCK = { stats: false, ask: true }`). 아래는 화면이 기대하는 형식이다. 각 서비스 API가 정해지면 대시보드 서버(`app.py`)가 그 서비스를 불러 이 형식으로 맞춰 준다.
 
 | 화면 | 대시보드 API | 응답 | 원본 서비스 |
 |---|---|---|---|
 | ① QR 카메라 연동 | `POST /api/session` | `{ session_id, capture_url, qr_png }` | frame-capture `POST /api/session` 중계 |
 | ① 연결 상태·실시간 영상 | (WebSocket 직접) `ws://<호스트>:8001/ws/dashboard/{session_id}` | JSON `{type: waiting\|paired\|status\|phone_disconnected}` + JPEG 바이너리 | frame-capture |
-| ② 실시간 저장 현황 | `GET /api/stats` | `{ saved, per_minute, latest: [{ id, title, text, saved_at }] }` (latest는 최신순) | vector-store (연결 전) |
+| ② 실시간 저장 현황 | `GET /api/stats` | `{ saved, per_minute, latest: [{ id, no, title, text, saved_at }] }` (latest는 최신순 20개, no는 저장 순번) | vector-store `GET /stats`(documents 수) + `GET /documents`(최근 목록, 최근 1분) 중계 |
 | ③ RAG 검색 | `POST /api/ask` `{ question }` | `{ answer, sources: [{ id, title }] }` | rag-chat (연결 전) |
 
 - `capture_url`은 휴대폰이 열 카메라 페이지 주소. 휴대폰 카메라는 HTTPS에서만 열리므로 실제 시연 때는 frame-capture의 `PUBLIC_BASE_URL`에 HTTPS 터널 주소를 넣는다.
