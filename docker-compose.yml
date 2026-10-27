@@ -1,0 +1,27 @@
+# 각 폴더에 Dockerfile이 생기면 그 서비스부터 동작한다.
+# 컨테이너끼리는 서비스 이름으로 부른다. 예: http://ocr:8002
+services:
+  homepage:
+    build: ./homepage
+    ports: ["8000:8000"]
+    env_file: { path: .env, required: false }
+
+  capture:
+    build: ./capture
+    ports: ["8001:8001"]
+    env_file: { path: .env, required: false }
+
+  ocr:
+    build: ./ocr
+    ports: ["8002:8002"]
+    env_file: { path: .env, required: false }
+
+  db:
+    build: ./db
+    ports: ["8003:8003"]
+    env_file: { path: .env, required: false }
+
+  rag:
+    build: ./rag
+    ports: ["8004:8004"]
+    env_file: { path: .env, required: false }
