@@ -1,4 +1,5 @@
 """Stages 1-3: dashboard page, QR session pairing, and phone -> server -> dashboard live video."""
+import asyncio
 import base64
 import io
 import logging
@@ -8,6 +9,7 @@ import string
 import time
 from pathlib import Path
 
+import httpx
 import qrcode
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
@@ -19,6 +21,9 @@ PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
 REDIS_URL = os.getenv("REDIS_URL", "")
 FRAME_QUEUE_MAXLEN = 50  # keep only the newest frames per session for the OCR worker (stage 4)
 SESSION_TTL = 60 * 60 * 6
+OCR_URL = os.getenv("OCR_URL", "http://ocr-extract:8002/ocr")
+OCR_INTERVAL = float(os.getenv("OCR_INTERVAL", "1.5"))  # seconds; send only the newest frame per interval
+_ocr_tasks: set[asyncio.Task] = set()  # hold references so background tasks aren't garbage-collected
 
 app = FastAPI(title="Conveyor OCR Demo")
 
@@ -36,6 +41,8 @@ class Session:
         self.dashboard: WebSocket | None = None
         self.phone: WebSocket | None = None
         self.frames = 0
+        self.ocr_busy = False
+        self.ocr_last = 0.0
 
 
 # Live WebSocket objects can't live in Redis, so the session table is an in-process dict.
@@ -69,6 +76,24 @@ async def notify_dashboard(s: Session, msg: dict) -> None:
             await s.dashboard.send_json(msg)
         except Exception:
             s.dashboard = None
+
+
+async def send_to_ocr(s: Session, frame: bytes) -> None:
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            r = await client.post(
+                OCR_URL,
+                files={"file": ("frame.jpg", frame, "image/jpeg")},
+                data={"session": s.id},
+            )
+            r.raise_for_status()
+            cards = r.json().get("cards", [])
+        if cards:
+            await notify_dashboard(s, {"type": "ocr", "cards": cards})
+    except Exception as e:
+        log.warning("ocr request failed: %s", e)
+    finally:
+        s.ocr_busy = False
 
 
 # ---------- Stage 1: pages ----------
@@ -171,6 +196,12 @@ async def ws_phone(ws: WebSocket, sid: str):
                     await redis.ltrim(key, 0, FRAME_QUEUE_MAXLEN - 1)
                 except Exception as e:
                     log.warning("redis push failed: %s", e)
+            now = time.time()
+            if not s.ocr_busy and now - s.ocr_last >= OCR_INTERVAL:  # skip while OCR is still working
+                s.ocr_busy, s.ocr_last = True, now
+                task = asyncio.create_task(send_to_ocr(s, frame))
+                _ocr_tasks.add(task)
+                task.add_done_callback(_ocr_tasks.discard)
             if s.frames % 10 == 0:
                 await notify_dashboard(s, {"type": "status", "frames": s.frames})
     except WebSocketDisconnect:
