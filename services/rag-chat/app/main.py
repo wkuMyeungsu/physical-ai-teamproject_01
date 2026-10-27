@@ -12,7 +12,7 @@ from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from .config import Settings, load_settings
-from .llm import AnthropicLLM, LLMError, LLMUnavailable, LocalLLM, ensure_model_file
+from .llm import LLMError, LLMUnavailable, LocalLLM, ensure_model_file
 from .pipeline import answer_question
 from .retriever import HttpRetriever, MockRetriever, RetrieverUnavailable
 
@@ -21,8 +21,6 @@ log = logging.getLogger("uvicorn.error")
 
 def build_llm(settings: Settings):
     """설정에 맞는 LLM을 만든다. 로컬 모델을 준비하지 못하면 LLM 없이 뜨고 이유를 돌려준다."""
-    if settings.llm_provider == "anthropic":
-        return AnthropicLLM(settings.anthropic_model, settings.anthropic_timeout), None
     if settings.llm_provider == "local":
         try:
             path = ensure_model_file(settings.local_model_path, settings.local_model_repo, settings.local_model_file)

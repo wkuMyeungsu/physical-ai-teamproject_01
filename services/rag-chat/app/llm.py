@@ -1,9 +1,6 @@
-"""LLM 호출.
+"""LLM 호출: 컨테이너 안에서 작은 모델(GGUF)을 llama.cpp로 CPU에서 돌린다. 키·비용 없음.
 
-- LocalLLM (기본): 컨테이너 안에서 작은 모델(GGUF)을 llama.cpp로 CPU에서 돌린다. 키·비용 없음.
-- AnthropicLLM (선택): RAG_LLM_PROVIDER=anthropic + ANTHROPIC_API_KEY.
-
-다른 모델·API로 바꿀 때는 같은 모양의 async complete()를 가진 클래스를 하나 더 만들면 된다.
+다른 모델로 바꿀 때는 RAG_LOCAL_MODEL_REPO / RAG_LOCAL_MODEL_FILE만 바꾸면 된다.
 """
 from __future__ import annotations
 
@@ -67,33 +64,6 @@ class LocalLLM:
                 text = await asyncio.to_thread(self._generate, system, user, max_tokens, temperature)
             except Exception as e:
                 raise LLMError(f"{type(e).__name__}: {e}") from e
-        if not text:
-            raise LLMError("빈 응답")
-        return text
-
-
-class AnthropicLLM:
-    name = "anthropic"
-
-    def __init__(self, model: str, timeout: float = 30.0):
-        from anthropic import AsyncAnthropic  # ANTHROPIC_API_KEY 환경변수를 SDK가 읽는다
-
-        self.model = model
-        self._client = AsyncAnthropic(timeout=timeout, max_retries=2)
-
-    async def complete(self, system: str, user: str, max_tokens: int = 500, temperature: float = 0.2) -> str:
-        import anthropic
-
-        try:
-            msg = await self._client.messages.create(
-                model=self.model,
-                max_tokens=max_tokens,  # 이 SDK 버전의 messages.create에는 temperature 인자가 없어서 넘기지 않는다
-                system=system,
-                messages=[{"role": "user", "content": user}],
-            )
-        except anthropic.AnthropicError as e:
-            raise LLMError(f"{type(e).__name__}: {e}") from e
-        text = "".join(block.text for block in msg.content if block.type == "text").strip()
         if not text:
             raise LLMError("빈 응답")
         return text

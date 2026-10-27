@@ -126,12 +126,11 @@ def test_dedupe_same_card_title_keeps_best_score():
     assert [r["id"] for r in dedupe(results)] == ["new", "part2"]
 
 
-def test_anthropic_without_key_fails_at_startup(monkeypatch):
+def test_unknown_llm_provider_fails_at_startup(monkeypatch):
     from app.config import load_settings
 
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    monkeypatch.setenv("RAG_LLM_PROVIDER", "anthropic")
-    with pytest.raises(ValueError, match="ANTHROPIC_API_KEY"):
+    monkeypatch.setenv("RAG_LLM_PROVIDER", "unknown-llm")  # 잘못된 값이면 시작할 때 바로 알려 준다
+    with pytest.raises(ValueError, match="RAG_LLM_PROVIDER"):
         load_settings()
 
 

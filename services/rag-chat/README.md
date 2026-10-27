@@ -43,7 +43,7 @@ services/rag-chat/
 │   ├── main.py             API (/ask, /health)
 │   ├── pipeline.py         검색어 변환 → 검색 → 중복 정리 → 답변
 │   ├── retriever.py        vector-store 호출 + mock 검색
-│   ├── llm.py              LLM 호출 (로컬 모델 · Anthropic 선택)
+│   ├── llm.py              로컬 LLM 호출 (llama.cpp)
 │   ├── prompt.py           프롬프트 · 제목 만들기
 │   ├── config.py           환경 변수
 │   └── sample_data.json    mock 검색 · 시드용 샘플 영어 원문
@@ -101,12 +101,11 @@ docker compose run --rm rag-chat pytest -q
 
 | 이름 | 기본값 | 설명 |
 |---|---|---|
-| `RAG_LLM_PROVIDER` | `local` | `local`(작은 모델) · `anthropic`(Claude API) · `none`(LLM 없이 관련 원문만) |
+| `RAG_LLM_PROVIDER` | `local` | `local`(작은 로컬 모델) · `none`(LLM 없이 관련 원문만, 빠른 확인용) |
 | `RAG_LOCAL_MODEL_FILE` | `qwen2.5-1.5b-instruct-q4_k_m.gguf` | 쓸 GGUF 파일. 없으면 시작할 때 아래 저장소에서 받는다 |
 | `RAG_LOCAL_MODEL_REPO` | `Qwen/Qwen2.5-1.5B-Instruct-GGUF` | 모델을 받을 Hugging Face 저장소. 비우면 받지 않는다 |
 | `RAG_LOCAL_THREADS` | (자동) | 모델이 쓸 CPU 스레드 수 |
 | `RAG_LOCAL_CTX` | `4096` | 한 번에 다룰 토큰 수 (질문 + 원문 + 답변) |
-| `RAG_ANTHROPIC_MODEL` | `claude-haiku-5-5` | `anthropic`일 때만. `ANTHROPIC_API_KEY`도 필요 |
 | `RAG_RETRIEVER` | `http` | `mock`이면 vector-store 없이 샘플 원문으로 검색 |
 | `RAG_VECTOR_STORE_URL` | `http://vector-store:8003` | |
 | `RAG_SEARCH_TOP_K` | `10` | vector-store에서 받아 올 개수 (중복 정리 전) |
@@ -150,7 +149,7 @@ docker compose run --rm rag-chat pytest -q
 |---|---|
 | 400 | `question`이 비어 있음 |
 | 422 | 요청 형식 오류 (`question` 없음, `top_k` 범위 밖 등) |
-| 502 | LLM 호출 실패 (모델 실행 오류, API 키 오류 등) |
+| 502 | LLM 호출 실패 (모델 실행 오류 등) |
 | 503 | vector-store에 연결할 수 없음 |
 
 ### 상태 — `GET /health`
